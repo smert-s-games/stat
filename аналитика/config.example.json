@@ -1,0 +1,19 @@
+{
+  "accounts_folders": [
+    "D:/Projects/accounts/folder1",
+    "D:/Projects/accounts/folder2"
+  ],
+  "accounts_folder": "accounts",
+  "links_file": "links.txt",
+  "telegram_bot_token": "",
+  "telegram_chat_id": "",
+  "proxy": {
+    "purchase_date": "",
+    "expiry_date": ""
+  },
+  "server": {
+    "purchase_date": "",
+    "expiry_date": ""
+  }
+}
+

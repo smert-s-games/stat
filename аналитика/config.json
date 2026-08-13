@@ -1,0 +1,21 @@
+{
+  "accounts_folder": "D:/Projects/BAS/ютуб/профили/профили на прогрев 2",
+  "links_file": "D:/Projects/BAS/ютуб/аккаунты/ссылки на каналы/2.txt",
+  "telegram_bot_token": "",
+  "telegram_chat_id": "",
+  "proxy": {
+    "purchase_date": "",
+    "expiry_date": ""
+  },
+  "accounts_folders": [
+    "D:/Projects/BAS/ютуб/профили/профили на прогрев 2",
+    "D:/Projects/BAS/ютуб/аккаунты/профили",
+    "D:/Projects/BAS/ютуб/профили/профили на прогрев"
+  ],
+  "server": {
+    "purchase_date": "",
+    "expiry_date": ""
+  },
+  "theme": "dark",
+  "scheduled_tasks": {}
+}
