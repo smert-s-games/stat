@@ -1,4 +1,4 @@
-"""Runtime patches: design system, theme, notifications, dashboard, video scripts."""
+"""Runtime patches: design system, shell, theme, notifications, dashboard, video scripts."""
 import tkinter as tk
 from tkinter import messagebox
 
@@ -22,9 +22,15 @@ def _change_theme(self, theme_name):
     self.setup_ttk_styles()
     self.update_ui_colors(theme)
 
-    if hasattr(self, 'toolbar_outer') and self.toolbar_outer.winfo_exists():
-        self.toolbar_outer.destroy()
-    self.create_modern_toolbar()
+    if hasattr(self, '_app_header') and self._app_header.winfo_exists():
+        pass
+    elif hasattr(self, 'toolbar_outer') and self.toolbar_outer is not None:
+        try:
+            if self.toolbar_outer.winfo_exists():
+                self.toolbar_outer.destroy()
+                self.create_modern_toolbar()
+        except Exception:
+            pass
 
     if hasattr(self, 'status_theme_label') and self.status_theme_label.winfo_exists():
         self.status_theme_label.config(
@@ -77,6 +83,12 @@ def apply_patches(app_cls):
         install_ui_design(app_cls)
     except Exception as e:
         print(f"UI design patch skipped: {e}")
+
+    try:
+        from modules.ui_shell import install_ui_shell
+        install_ui_shell(app_cls)
+    except Exception as e:
+        print(f"UI shell patch skipped: {e}")
 
     app_cls.change_theme = _change_theme
     app_cls.check_notifications = _check_notifications
