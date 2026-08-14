@@ -1,9 +1,18 @@
 """
-Вкладка «Главная» — панель с ключевой информацией.
+Вкладка «Главная» — панель с KPI, графиками роста и быстрыми действиями.
 """
 import tkinter as tk
 from tkinter import ttk
 from datetime import datetime
+from collections import defaultdict
+
+try:
+    from matplotlib.figure import Figure
+    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+    import matplotlib.dates as mdates
+    HAS_MPL = True
+except ImportError:
+    HAS_MPL = False
 
 
 def create_dashboard_tab(self):
@@ -20,7 +29,9 @@ def create_dashboard_tab(self):
         "<Configure>",
         lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
     )
-    self._dashboard_canvas_window = canvas.create_window((0, 0), window=self.dashboard_inner, anchor="nw")
+    self._dashboard_canvas_window = canvas.create_window(
+        (0, 0), window=self.dashboard_inner, anchor="nw"
+    )
 
     def _on_canvas_configure(event):
         canvas.itemconfig(self._dashboard_canvas_window, width=event.width)
@@ -40,14 +51,16 @@ def create_dashboard_tab(self):
     canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
     self.dashboard_canvas = canvas
+    self._dash_chart_canvases = []
     self._build_dashboard_content()
 
 
 def _build_dashboard_content(self):
-    """Собирает карточки дашборда."""
+    """Собирает карточки и графики дашборда."""
     parent = self.dashboard_inner
     for w in parent.winfo_children():
         w.destroy()
+    self._dash_chart_canvases = []
 
     header = tk.Frame(parent, bg=self.colors['bg'])
     header.pack(fill=tk.X, padx=20, pady=(20, 10))
@@ -78,6 +91,18 @@ def _build_dashboard_content(self):
         card = self._dash_kpi_card(kpi_row, title, value, color)
         card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=8, pady=8)
         self.dash_kpi_frames[key] = card
+
+    charts_row = tk.Frame(parent, bg=self.colors['bg'])
+    charts_row.pack(fill=tk.X, padx=15, pady=5)
+    charts_row.columnconfigure(0, weight=1)
+    charts_row.columnconfigure(1, weight=1)
+
+    self.dash_views_chart_frame = self._dash_chart_host(
+        charts_row, "📈 Рост просмотров", self.colors['success'], 0
+    )
+    self.dash_subs_chart_frame = self._dash_chart_host(
+        charts_row, "👥 Рост подписчиков", self.colors['accent'], 1
+    )
 
     cols = tk.Frame(parent, bg=self.colors['bg'])
     cols.pack(fill=tk.BOTH, expand=True, padx=15, pady=10)
@@ -129,7 +154,8 @@ def _build_dashboard_content(self):
         self.create_modern_button(actions_inner, text, cmd, color).pack(fill=tk.X, pady=4)
 
     recent_content, _, _ = self.create_rounded_card(
-        right, "📋 Последняя активность", self.colors['text_secondary'], fill=tk.BOTH, expand=True
+        right, "📋 Последняя активность", self.colors['text_secondary'],
+        fill=tk.BOTH, expand=True
     )
     self.dash_activity_text = tk.Text(
         recent_content, height=10, wrap=tk.WORD,
@@ -140,6 +166,31 @@ def _build_dashboard_content(self):
     self.dash_activity_text.config(state=tk.DISABLED)
 
     self.refresh_dashboard()
+
+
+def _dash_chart_host(self, parent, title, accent, column):
+    """Карточка-контейнер под график (grid)."""
+    outer = tk.Frame(parent, bg=self.colors['bg'])
+    outer.grid(row=0, column=column, sticky="nsew", padx=8, pady=8)
+
+    shadow = tk.Frame(outer, bg='#d0d0d0' if self.colors['bg'] == '#f8f9fa' else '#3a3a3a')
+    shadow.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+    card = tk.Frame(shadow, bg=self.colors['card_bg'])
+    card.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
+
+    header = tk.Frame(card, bg=accent, height=36)
+    header.pack(fill=tk.X)
+    header.pack_propagate(False)
+    tk.Label(
+        header, text=title, bg=accent, fg='white',
+        font=('Segoe UI', 10, 'bold')
+    ).pack(side=tk.LEFT, padx=12, pady=6)
+
+    body = tk.Frame(card, bg=self.colors['card_bg'], height=220)
+    body.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+    body.pack_propagate(False)
+    outer._body = body
+    return outer
 
 
 def _dash_kpi_card(self, parent, title, value, accent):
@@ -182,6 +233,115 @@ def _dash_set_text(widget, text):
     widget.config(state=tk.DISABLED)
 
 
+def _get_growth_series(self, days=30):
+    """Агрегирует историю: по датам суммирует views/subs по всем каналам."""
+    try:
+        history = self.database.get_all_channels_history(days)
+    except Exception:
+        return [], [], []
+
+    if not history:
+        return [], [], []
+
+    by_day_channel = {}
+    for rec in history:
+        url = rec[1] or ""
+        subs = rec[3] or 0
+        views = rec[4] or 0
+        raw_date = rec[6] or ""
+        try:
+            if isinstance(raw_date, str):
+                day = raw_date[:10]
+            else:
+                day = str(raw_date)[:10]
+            datetime.strptime(day, "%Y-%m-%d")
+        except Exception:
+            continue
+        key = (day, url)
+        by_day_channel[key] = (int(subs or 0), int(views or 0))
+
+    day_totals = defaultdict(lambda: {"subs": 0, "views": 0})
+    for (day, _url), (subs, views) in by_day_channel.items():
+        day_totals[day]["subs"] += subs
+        day_totals[day]["views"] += views
+
+    days_sorted = sorted(day_totals.keys())
+    dates = []
+    subs_series = []
+    views_series = []
+    for d in days_sorted:
+        try:
+            dates.append(datetime.strptime(d, "%Y-%m-%d"))
+        except Exception:
+            continue
+        subs_series.append(day_totals[d]["subs"])
+        views_series.append(day_totals[d]["views"])
+
+    return dates, views_series, subs_series
+
+
+def _render_line_chart(self, host_frame, dates, values, color, ylabel):
+    """Рисует линейный график в host_frame._body."""
+    body = getattr(host_frame, '_body', None)
+    if body is None:
+        return
+
+    for w in body.winfo_children():
+        w.destroy()
+
+    if not HAS_MPL:
+        tk.Label(
+            body,
+            text="Установите matplotlib:\npip install matplotlib",
+            bg=self.colors['card_bg'],
+            fg=self.colors['text_secondary'],
+            font=('Segoe UI', 9),
+            justify=tk.CENTER
+        ).pack(expand=True)
+        return
+
+    if len(dates) < 2:
+        tk.Label(
+            body,
+            text="Недостаточно данных для графика.\nЗапустите парсинг несколько раз\nв разные дни.",
+            bg=self.colors['card_bg'],
+            fg=self.colors['text_secondary'],
+            font=('Segoe UI', 9),
+            justify=tk.CENTER
+        ).pack(expand=True)
+        return
+
+    bg = self.colors['card_bg']
+    fg = self.colors['fg']
+    grid_c = self.colors.get('border', '#dee2e6')
+
+    fig = Figure(figsize=(5.2, 2.4), dpi=100)
+    fig.patch.set_facecolor(bg)
+    ax = fig.add_subplot(111)
+    ax.set_facecolor(bg)
+
+    ax.plot(dates, values, color=color, linewidth=2.2, marker='o', markersize=4)
+    ax.fill_between(dates, values, alpha=0.15, color=color)
+
+    ax.set_ylabel(ylabel, color=fg, fontsize=8)
+    ax.tick_params(colors=fg, labelsize=7)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_color(grid_c)
+    ax.spines['left'].set_color(grid_c)
+    ax.grid(True, alpha=0.25, color=grid_c)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m'))
+    if len(dates) > 8:
+        ax.xaxis.set_major_locator(mdates.AutoDateLocator(maxticks=6))
+    fig.autofmt_xdate(rotation=30, ha='right')
+    fig.tight_layout(pad=0.6)
+
+    canvas = FigureCanvasTkAgg(fig, master=body)
+    canvas.draw()
+    canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+    self._dash_chart_canvases.append(canvas)
+
+
 def refresh_dashboard(self):
     if not hasattr(self, 'dash_kpi_frames'):
         return
@@ -207,6 +367,18 @@ def refresh_dashboard(self):
 
     accounts = getattr(self, 'current_accounts_data', []) or []
     self._set_kpi('accounts', len(accounts) if accounts else "—")
+
+    dates, views_s, subs_s = self._get_growth_series(30)
+    if hasattr(self, 'dash_views_chart_frame'):
+        self._render_line_chart(
+            self.dash_views_chart_frame, dates, views_s,
+            self.colors['success'], "Просмотры"
+        )
+    if hasattr(self, 'dash_subs_chart_frame'):
+        self._render_line_chart(
+            self.dash_subs_chart_frame, dates, subs_s,
+            self.colors['accent'], "Подписчики"
+        )
 
     proxy = self.config.get('proxy', {})
     server = self.config.get('server', {})
@@ -286,7 +458,10 @@ def install_dashboard(app_cls):
     app_cls.create_dashboard_tab = create_dashboard_tab
     app_cls._build_dashboard_content = _build_dashboard_content
     app_cls._dash_kpi_card = _dash_kpi_card
+    app_cls._dash_chart_host = _dash_chart_host
     app_cls._set_kpi = _set_kpi
+    app_cls._get_growth_series = _get_growth_series
+    app_cls._render_line_chart = _render_line_chart
     app_cls.refresh_dashboard = refresh_dashboard
 
     original_create_ui = app_cls.create_ui
