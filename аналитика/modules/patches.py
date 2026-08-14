@@ -1,4 +1,4 @@
-"""Runtime patches for AnalyticsApp (theme, notifications, dashboard)."""
+"""Runtime patches for AnalyticsApp (theme, notifications, dashboard, video scripts)."""
 import tkinter as tk
 from tkinter import messagebox
 
@@ -68,7 +68,7 @@ def _check_notifications(self):
 
 
 def apply_patches(app_cls):
-    """Monkey-patch AnalyticsApp methods + dashboard tab."""
+    """Monkey-patch AnalyticsApp methods + dashboard + video scripts."""
     app_cls.change_theme = _change_theme
     app_cls.check_notifications = _check_notifications
 
@@ -77,5 +77,11 @@ def apply_patches(app_cls):
         install_dashboard(app_cls)
     except Exception as e:
         print(f"Dashboard patch skipped: {e}")
+
+    try:
+        from modules.video_scripts_ui import install_video_scripts
+        install_video_scripts(app_cls)
+    except Exception as e:
+        print(f"Video scripts patch skipped: {e}")
 
     return app_cls
