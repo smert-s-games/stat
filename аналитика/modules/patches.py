@@ -1,4 +1,4 @@
-"""Runtime patches: design system, shell, theme, notifications, dashboard, video scripts."""
+"""Runtime patches: design system, shell, theme, notifications, dashboard, video scripts, stats columns."""
 import tkinter as tk
 from tkinter import messagebox
 
@@ -110,5 +110,11 @@ def apply_patches(app_cls):
         install_video_scripts(app_cls)
     except Exception as e:
         print(f"Video scripts patch skipped: {e}")
+
+    try:
+        from modules.stats_columns import install_stats_columns
+        install_stats_columns(app_cls)
+    except Exception as e:
+        print(f"Stats columns patch skipped: {e}")
 
     return app_cls
