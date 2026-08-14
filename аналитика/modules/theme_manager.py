@@ -6,7 +6,7 @@ from tkinter import ttk
 
 THEMES = {
     'light': {
-        'bg': '#eef1f6',
+        'bg': '#f0f2f5',
         'fg': '#1a1d26',
         'select_bg': '#4f46e5',
         'select_fg': '#ffffff',
@@ -14,7 +14,7 @@ THEMES = {
         'entry_fg': '#1a1d26',
         'button_bg': '#e2e8f0',
         'button_fg': '#1a1d26',
-        'frame_bg': '#eef1f6',
+        'frame_bg': '#f0f2f5',
         'text_bg': '#ffffff',
         'text_fg': '#1a1d26',
         'card_bg': '#ffffff',
@@ -35,6 +35,7 @@ THEMES = {
         'muted': '#94a3b8',
         'tab_bg': '#e2e8f0',
         'tab_active': '#4f46e5',
+        'sidebar_bg': '#ffffff',
     },
     'dark': {
         'bg': '#0f1117',
@@ -66,6 +67,7 @@ THEMES = {
         'muted': '#6b7280',
         'tab_bg': '#1c1f2b',
         'tab_active': '#6366f1',
+        'sidebar_bg': '#171a23',
     },
 }
 
