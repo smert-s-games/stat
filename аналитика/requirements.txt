@@ -5,3 +5,4 @@ requests>=2.31.0
 schedule>=1.2.0
 openpyxl>=3.1.0
 matplotlib>=3.7.0
+pywebview>=5.0
