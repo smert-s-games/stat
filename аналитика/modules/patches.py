@@ -1,10 +1,9 @@
-"""Runtime patches: design system, shell, theme, notifications, dashboard, video scripts, stats columns."""
+"""Runtime patches: design, shell, theme, dashboard, video, stats, background jobs."""
 import tkinter as tk
 from tkinter import messagebox
 
 
 def _change_theme(self, theme_name):
-    """Смена темы без уничтожения UI."""
     self.config['theme'] = theme_name
     self.save_config()
 
@@ -123,5 +122,11 @@ def apply_patches(app_cls):
         install_stats_parser_ext(StatsParser)
     except Exception as e:
         print(f"Stats parser ext skipped: {e}")
+
+    try:
+        from modules.background_jobs import install_background_jobs
+        install_background_jobs(app_cls)
+    except Exception as e:
+        print(f"Background jobs patch skipped: {e}")
 
     return app_cls
