@@ -100,6 +100,12 @@ def apply_patches(app_cls):
         print(f"Dashboard patch skipped: {e}")
 
     try:
+        from modules.dashboard_style import install_dashboard_style
+        install_dashboard_style(app_cls)
+    except Exception as e:
+        print(f"Dashboard style patch skipped: {e}")
+
+    try:
         from modules.video_scripts_ui import install_video_scripts
         install_video_scripts(app_cls)
     except Exception as e:
