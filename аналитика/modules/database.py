@@ -21,7 +21,6 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
         
-        # Таблица истории статистики каналов
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS channel_stats_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,7 +34,6 @@ class Database:
             )
         ''')
         
-        # Таблица истории операций
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS operations_log (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,7 +44,6 @@ class Database:
             )
         ''')
         
-        # Таблица настроек прокси/серверов
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS proxy_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,7 +55,6 @@ class Database:
             )
         ''')
         
-        # Таблица тегов аккаунтов
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS account_tags (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,7 +65,6 @@ class Database:
             )
         ''')
         
-        # Таблица уведомлений
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS notifications (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -286,17 +281,24 @@ class Database:
         conn.close()
     
     def _parse_number(self, text):
-        """Парсинг числа из текста"""
+        """Парсинг числа из текста (K/M/тыс/млн)"""
         import re
-        if not text or text == 'Неизвестно' or text == '0':
+        if not text or text in ('Неизвестно', '0', '-', 'N/A'):
             return 0
-        
-        cleaned = re.sub(r'[^\d,.]', '', str(text))
-        cleaned = cleaned.replace(',', '.')
-        
+        text = str(text).strip().lower().replace('\xa0', ' ').replace(',', '.')
+        text = re.sub(r'(подписчик|просмотр|видео|views?|subscribers?|videos?).*$', '', text, flags=re.I).strip()
+        mult = 1
+        for key, val in [('млрд', 1_000_000_000), ('billion', 1_000_000_000), ('b', 1_000_000_000),
+                         ('млн', 1_000_000), ('million', 1_000_000), ('m', 1_000_000),
+                         ('тыс', 1_000), ('thousand', 1_000), ('k', 1_000)]:
+            if key in text:
+                mult = val
+                text = text.replace(key, '').strip()
+                break
+        cleaned = re.sub(r'[^\d.]', '', text)
+        if not cleaned:
+            return 0
         try:
-            num = float(cleaned)
-            return int(num) if num.is_integer() else num
-        except:
+            return int(float(cleaned) * mult)
+        except Exception:
             return 0
-
