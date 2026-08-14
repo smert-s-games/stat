@@ -1,16 +1,23 @@
-"""Runtime patches for AnalyticsApp (theme, notifications, dashboard, video scripts)."""
+"""Runtime patches: design system, theme, notifications, dashboard, video scripts."""
 import tkinter as tk
 from tkinter import messagebox
 
 
 def _change_theme(self, theme_name):
-    """Изменение темы оформления без уничтожения UI"""
+    """Смена темы без уничтожения UI."""
     self.config['theme'] = theme_name
     self.save_config()
 
-    theme = self.theme_manager.themes[theme_name]
-    self.colors = theme.copy()
+    try:
+        from modules.ui_design import THEMES
+        theme = THEMES.get(theme_name, THEMES['light']).copy()
+        if hasattr(self, 'theme_manager'):
+            self.theme_manager.themes = THEMES
+            self.theme_manager.current_theme = theme_name
+    except Exception:
+        theme = self.theme_manager.themes[theme_name]
 
+    self.colors = theme.copy()
     self.theme_manager.apply_theme(self.root, theme_name)
     self.setup_ttk_styles()
     self.update_ui_colors(theme)
@@ -37,21 +44,18 @@ def _change_theme(self, theme_name):
             pass
 
     self.set_status(f"Тема: {'тёмная' if theme_name == 'dark' else 'светлая'}")
-    messagebox.showinfo("Успех", f"Тема изменена на: {'Светлую' if theme_name == 'light' else 'Темную'}")
+    messagebox.showinfo("Успех", f"Тема изменена на: {'Светлую' if theme_name == 'light' else 'Тёмную'}")
 
 
 def _check_notifications(self):
-    """Проверка и отображение уведомлений"""
     try:
         notifications = self.database.get_unread_notifications()
         if notifications:
             notification_text = "У вас есть непрочитанные уведомления:\n\n"
             for notif in notifications[:5]:
                 notification_text += f"• {notif[2]}\n"
-
             if len(notifications) > 5:
                 notification_text += f"\n... и еще {len(notifications) - 5} уведомлений"
-
             messagebox.showwarning("Уведомления", notification_text)
             for notif in notifications:
                 try:
@@ -68,7 +72,12 @@ def _check_notifications(self):
 
 
 def apply_patches(app_cls):
-    """Monkey-patch AnalyticsApp methods + dashboard + video scripts."""
+    try:
+        from modules.ui_design import install_ui_design
+        install_ui_design(app_cls)
+    except Exception as e:
+        print(f"UI design patch skipped: {e}")
+
     app_cls.change_theme = _change_theme
     app_cls.check_notifications = _check_notifications
 
