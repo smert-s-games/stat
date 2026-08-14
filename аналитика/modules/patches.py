@@ -117,4 +117,11 @@ def apply_patches(app_cls):
     except Exception as e:
         print(f"Stats columns patch skipped: {e}")
 
+    try:
+        from modules.stats_parser import StatsParser
+        from modules.stats_parser_ext import install_stats_parser_ext
+        install_stats_parser_ext(StatsParser)
+    except Exception as e:
+        print(f"Stats parser ext skipped: {e}")
+
     return app_cls
