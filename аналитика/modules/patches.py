@@ -1,6 +1,4 @@
-"""Runtime patches for AnalyticsApp (theme + notifications).
-Import this after AnalyticsApp is defined, or call apply_patches(AnalyticsApp).
-"""
+"""Runtime patches for AnalyticsApp (theme, notifications, dashboard)."""
 import tkinter as tk
 from tkinter import messagebox
 
@@ -32,6 +30,12 @@ def _change_theme(self, theme_name):
     if hasattr(self, 'status_label') and self.status_label.winfo_exists():
         self.status_label.config(bg=self.colors['card_bg'], fg=self.colors['text_secondary'])
 
+    if hasattr(self, '_build_dashboard_content') and hasattr(self, 'dashboard_inner'):
+        try:
+            self._build_dashboard_content()
+        except Exception:
+            pass
+
     self.set_status(f"Тема: {'тёмная' if theme_name == 'dark' else 'светлая'}")
     messagebox.showinfo("Успех", f"Тема изменена на: {'Светлую' if theme_name == 'light' else 'Темную'}")
 
@@ -54,12 +58,24 @@ def _check_notifications(self):
                     self.database.mark_notification_read(notif[0])
                 except Exception:
                     pass
+            if hasattr(self, 'refresh_dashboard'):
+                try:
+                    self.refresh_dashboard()
+                except Exception:
+                    pass
     except Exception as e:
         print(f"Ошибка при проверке уведомлений: {e}")
 
 
 def apply_patches(app_cls):
-    """Monkey-patch AnalyticsApp methods."""
+    """Monkey-patch AnalyticsApp methods + dashboard tab."""
     app_cls.change_theme = _change_theme
     app_cls.check_notifications = _check_notifications
+
+    try:
+        from modules.dashboard import install_dashboard
+        install_dashboard(app_cls)
+    except Exception as e:
+        print(f"Dashboard patch skipped: {e}")
+
     return app_cls
