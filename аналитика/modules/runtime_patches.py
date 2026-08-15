@@ -1,4 +1,4 @@
-"""Runtime patches: multi-proxy, themes, 404 normalize, project isolation."""
+"""Runtime patches: multi-proxy, themes, 404, correct channel views."""
 from __future__ import annotations
 
 import uuid
@@ -189,14 +189,17 @@ def apply_webapi_patches(WebAPI):
 
     def get_all_projects_stats(self):
         all_stats = []
+        projects = []
         try:
             self.store._index = self.store._load_index()
-            projects = self.store._index.get("projects", [])
-        except Exception:
-            projects = []
+            projects = list(self.store._index.get("projects") or [])
+        except Exception as e:
+            return {"stats": [], "count": 0, "projects_count": 0, "error": str(e)}
         for proj in projects:
+            if not isinstance(proj, dict):
+                continue
             name = proj.get("name") or proj.get("id") or "?"
-            for r in proj.get("last_stats") or []:
+            for r in (proj.get("last_stats") or []):
                 if not isinstance(r, dict):
                     continue
                 row = dict(r)
@@ -244,10 +247,87 @@ def apply_webapi_patches(WebAPI):
 
     try:
         from modules.stats_parser import StatsParser
-        if not getattr(StatsParser, "_views_patched", False):
+        if not getattr(StatsParser, "_parse_number_fixed", False):
+            import re as _re
+
+            def parse_number(self, text):
+                if not text or text in ("Неизвестно", "0", "-", "N/A", "—"):
+                    return 0
+                text = str(text).strip().lower().replace("\xa0", " ").replace("\u202f", " ")
+                text = _re.sub(r"(подписчик|просмотр|видео|views?|subscribers?|videos?).*$", "", text, flags=_re.I)
+                text = text.strip()
+                multipliers = {
+                    "тыс.": 1_000, "тыс": 1_000, "thousand": 1_000, "k": 1_000,
+                    "млн.": 1_000_000, "млн": 1_000_000, "million": 1_000_000, "m": 1_000_000,
+                    "млрд.": 1_000_000_000, "млрд": 1_000_000_000, "billion": 1_000_000_000, "b": 1_000_000_000,
+                }
+                mult = 1
+                for key, val in sorted(multipliers.items(), key=lambda x: -len(x[0])):
+                    if key in text:
+                        mult = val
+                        text = text.replace(key, "").strip()
+                        break
+                text = text.replace(" ", "")
+                if not text:
+                    return 0
+                if _re.fullmatch(r"\d{1,3}(,\d{3})+(\.\d+)?", text):
+                    text = text.replace(",", "")
+                elif _re.fullmatch(r"\d{1,3}(\.\d{3})+(,\d+)?", text):
+                    text = text.replace(".", "").replace(",", ".")
+                elif "," in text and "." not in text:
+                    left, right = text.split(",", 1)
+                    if right.isdigit() and len(right) == 3 and left.isdigit():
+                        text = left + right
+                    else:
+                        text = left + "." + right
+                elif "." in text and "," not in text:
+                    left, right = text.split(".", 1)
+                    if right.isdigit() and len(right) == 3 and left.isdigit() and mult > 1:
+                        text = left + right
+                cleaned = _re.sub(r"[^\d.]", "", text)
+                if not cleaned or cleaned == ".":
+                    return 0
+                try:
+                    return int(float(cleaned) * mult)
+                except ValueError:
+                    return 0
+
+            StatsParser.parse_number = parse_number
+            StatsParser._parse_number_fixed = True
+    except Exception as e:
+        print("parse_number patch:", e)
+
+    try:
+        from modules.stats_parser import StatsParser
+        if not getattr(StatsParser, "_views_patched_v3", False):
             import re as _re
 
             _orig_pcd = StatsParser.parse_channel_data
+
+            def _views_from_about_only(src: str, parse_number):
+                """Только about-блоки канала — НЕ карточки видео."""
+                cands = []
+                if not src:
+                    return 0
+                for pat in (
+                    r'"aboutChannelViewModel"\s*:\s*\{',
+                    r'"channelAboutFullMetadataRenderer"\s*:\s*\{',
+                ):
+                    for m in _re.finditer(pat, src):
+                        chunk = src[m.start() : m.start() + 8000]
+                        for vm in _re.finditer(
+                            r'"viewCountText"\s*:\s*(?:\{[^}]*?"simpleText"\s*:\s*"([^"]+)"|"([^"]+)")',
+                            chunk,
+                        ):
+                            n = parse_number(vm.group(1) or vm.group(2) or "")
+                            if n > 0:
+                                cands.append(n)
+                        # иногда число без Text
+                        for vm in _re.finditer(r'"viewCount"\s*:\s*"?(\d+)"?', chunk):
+                            n = int(vm.group(1))
+                            if n > 0:
+                                cands.append(n)
+                return max(cands) if cands else 0
 
             def parse_channel_data(self, url):
                 data = _orig_pcd(self, url)
@@ -259,42 +339,33 @@ def apply_webapi_patches(WebAPI):
                     data["status"] = "❌"
                     return data
 
-                views = str(data.get("total_views") or "0")
-                n = self.parse_number(views)
-                need_fix = (n <= 0) or (n < 50 and data.get("videos_count") not in ("0", "", None))
-                if need_fix:
-                    try:
-                        src = self.driver.page_source if self.driver else ""
-                    except Exception:
-                        src = ""
-                    found_text = None
-                    m = _re.search(r'"viewCountText"\s*:\s*\{[^}]*?"simpleText"\s*:\s*"([^"]+)"', src)
-                    if not m:
-                        m = _re.search(r'"viewCountText"\s*:\s*"([^"]+)"', src)
-                    if m:
-                        found_text = m.group(1)
-                    if not found_text:
-                        m = _re.search(
-                            r'([\d\s\u00a0.,]+)\s*(тыс\.?|млн\.?|млрд\.?|K|M|B)?\s*(?:просмотр|views?)',
-                            src,
-                            _re.I,
-                        )
-                        if m:
-                            found_text = (m.group(1) + " " + (m.group(2) or "")).strip()
-                    if found_text:
-                        n2 = self.parse_number(found_text)
-                        if n2 > n:
-                            data["total_views_num"] = n2
-                            data["total_views"] = self.format_large_number(n2)
-                            n = n2
-                if n > 0:
-                    data["total_views_num"] = n
-                    if self.parse_number(str(data.get("total_views") or "")) == n:
+                try:
+                    src = self.driver.page_source if self.driver else ""
+                except Exception:
+                    src = ""
+
+                about_n = _views_from_about_only(src, self.parse_number)
+                if about_n > 0:
+                    data["total_views_num"] = about_n
+                    data["total_views"] = self.format_large_number(about_n)
+                else:
+                    # не оставляем мусор с карточек: если число крошечное/сомнительное — 0
+                    n = int(data.get("total_views_num") or 0) or self.parse_number(
+                        str(data.get("total_views") or "0")
+                    )
+                    # если на about не нашли — лучше показать 0, чем чужие 48 с видео
+                    if n > 0 and n < 20:
+                        data["total_views"] = "0"
+                        data["total_views_num"] = 0
+                    elif n > 0:
+                        data["total_views_num"] = n
                         data["total_views"] = self.format_large_number(n)
                 return data
 
             StatsParser.parse_channel_data = parse_channel_data
+            StatsParser._views_patched_v3 = True
             StatsParser._views_patched = True
+            StatsParser._views_patched_v2 = True
     except Exception as e:
         print("views patch:", e)
 

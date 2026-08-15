@@ -114,12 +114,35 @@ const App = {
   async switchProject(pid) {
     if (!pid) return;
     if (pid === "__all__") {
-      if (typeof App.showAllProjectsStats === "function") await App.showAllProjectsStats();
+      await App.showAllProjectsStats();
       return;
     }
     App.renderStats([]);
+    var log = document.getElementById("stats-log");
+    if (log) log.textContent = "Загрузка проекта…\n";
     await App.api("switch_project", pid);
     await App.reloadAll();
+  },
+
+  async showAllProjectsStats() {
+    App.setStatus("Загрузка всех проектов…");
+    var data = await App.api("get_all_projects_stats");
+    if (!data || data.error) {
+      var msg = (data && data.error) ? data.error : "Нет ответа API get_all_projects_stats";
+      App.setStatus("Ошибка: " + msg);
+      alert("Не удалось загрузить все проекты: " + msg);
+      return;
+    }
+    var list = data.stats || [];
+    App.renderStats(list);
+    var log = document.getElementById("stats-log");
+    if (log) {
+      log.textContent = "Все проекты: " + list.length + " каналов из " + (data.projects_count || "?") + " проектов.\n";
+    }
+    var sel = document.getElementById("project-select");
+    if (sel) sel.value = "__all__";
+    App.navigate("stats");
+    App.setStatus("Сводка по всем проектам: " + list.length);
   },
 
   async reloadAll() {
@@ -241,7 +264,8 @@ const App = {
         var label = err || (name.trim().toLowerCase() === "youtube" ? "Неактивный канал" : "404 Not Found");
         return "<tr class=\"row-error\"><td>" + esc(name || r.url || "") + "</td><td>—</td><td>—</td><td>—</td><td>" + esc(r.url || "") + "</td><td>—</td><td><span class=\"badge badge-err\">❌ " + esc(label) + "</span></td></tr>";
       }
-      return "<tr><td>" + esc(r.channel_name || "") + "</td><td>" + esc(r.subscribers || "0") + "</td><td>" + esc(r.total_views || "0") + "</td><td>" + esc(r.videos_count || "0") + "</td><td><a href=\"#\" data-url=\"" + esc(r.url || "") + "\">" + esc(r.url || "") + "</a></td><td>" + esc(r.email || "—") + "</td><td><span class=\"badge badge-ok\">✅</span></td></tr>";
+      var views = (r.total_views_num != null && r.total_views_num !== "") ? r.total_views : (r.total_views || "0");
+      return "<tr><td>" + esc(r.channel_name || "") + "</td><td>" + esc(r.subscribers || "0") + "</td><td>" + esc(views) + "</td><td>" + esc(r.videos_count || "0") + "</td><td><a href=\"#\" data-url=\"" + esc(r.url || "") + "\">" + esc(r.url || "") + "</a></td><td>" + esc(r.email || "—") + "</td><td><span class=\"badge badge-ok\">✅</span></td></tr>";
     }).join("");
     tbody.querySelectorAll("a[data-url]").forEach(function (a) {
       a.onclick = function (e) { e.preventDefault(); App.openUrl(a.getAttribute("data-url")); };
