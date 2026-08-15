@@ -97,9 +97,11 @@ const App = {
     const data = await App.api("list_projects");
     const sel = document.getElementById("project-select");
     if (!data || !sel) return;
-    sel.innerHTML = (data.projects || []).map(function (p) {
+    var html = '<option value="__all__">Все проекты</option>';
+    html += (data.projects || []).map(function (p) {
       return '<option value="' + esc(p.id) + '"' + (p.id === data.active_id ? ' selected' : '') + '>' + esc(p.name) + '</option>';
     }).join("");
+    sel.innerHTML = html;
   },
 
   async newProject() {
@@ -111,6 +113,11 @@ const App = {
 
   async switchProject(pid) {
     if (!pid) return;
+    if (pid === "__all__") {
+      if (typeof App.showAllProjectsStats === "function") await App.showAllProjectsStats();
+      return;
+    }
+    App.renderStats([]);
     await App.api("switch_project", pid);
     await App.reloadAll();
   },
@@ -148,10 +155,12 @@ const App = {
 
   async loadCachedStats() {
     const results = await App.api("get_cached_stats");
-    if (results && results.length) {
-      App.renderStats(results);
-      var log = document.getElementById("stats-log");
-      if (log) log.textContent = "Сохранённая сессия: " + results.length + " каналов.\n";
+    var list = Array.isArray(results) ? results : [];
+    App.renderStats(list);
+    var log = document.getElementById("stats-log");
+    if (log) {
+      if (list.length) log.textContent = "Сессия проекта: " + list.length + " каналов.\n";
+      else log.textContent = "В этом проекте нет сохранённой статистики.\n";
     }
   },
 
@@ -224,8 +233,13 @@ const App = {
       return;
     }
     tbody.innerHTML = results.map(function (r) {
-      if (r.error) {
-        return "<tr><td>" + esc(r.channel_name || r.url || "") + "</td><td>—</td><td>—</td><td>—</td><td>" + esc(r.url || "") + "</td><td>—</td><td><span class=\"badge badge-err\">❌ " + esc(String(r.error)) + "</span></td></tr>";
+      var name = String(r.channel_name || "");
+      var err = r.error ? String(r.error) : "";
+      var low = (err + " " + name).toLowerCase();
+      var isBad = !!(err) || low.indexOf("404") >= 0 || name.trim().toLowerCase() === "youtube";
+      if (isBad) {
+        var label = err || (name.trim().toLowerCase() === "youtube" ? "Неактивный канал" : "404 Not Found");
+        return "<tr class=\"row-error\"><td>" + esc(name || r.url || "") + "</td><td>—</td><td>—</td><td>—</td><td>" + esc(r.url || "") + "</td><td>—</td><td><span class=\"badge badge-err\">❌ " + esc(label) + "</span></td></tr>";
       }
       return "<tr><td>" + esc(r.channel_name || "") + "</td><td>" + esc(r.subscribers || "0") + "</td><td>" + esc(r.total_views || "0") + "</td><td>" + esc(r.videos_count || "0") + "</td><td><a href=\"#\" data-url=\"" + esc(r.url || "") + "\">" + esc(r.url || "") + "</a></td><td>" + esc(r.email || "—") + "</td><td><span class=\"badge badge-ok\">✅</span></td></tr>";
     }).join("");

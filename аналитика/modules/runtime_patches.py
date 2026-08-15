@@ -13,16 +13,36 @@ def _normalize_stats_results(results):
         r.setdefault("email", "")
         r.setdefault("url", r.get("url") or "")
         err = str(r.get("error") or "")
-        blob = (err + " " + str(r.get("status") or "") + " " + str(r.get("channel_name") or "")).lower()
-        if r.get("error") or ("404" in blob) or ("not found" in blob):
+        name = (r.get("channel_name") or "").strip()
+        name_low = name.lower()
+        blob = (err + " " + str(r.get("status") or "") + " " + name_low).lower()
+
+        if name_low in ("youtube", "www.youtube.com"):
+            cleaned.append({
+                "url": r.get("url", ""),
+                "channel_name": name,
+                "error": "Неактивный канал",
+                "status": "❌",
+                "email": r.get("email") or "",
+                "subscribers": "—",
+                "total_views": "—",
+                "videos_count": "—",
+                "project_name": r.get("project_name", ""),
+                "project_id": r.get("project_id", ""),
+            })
+            continue
+
+        if r.get("error") or ("404" in blob) or ("not found" in blob) or ("неактивн" in blob):
             if "404" in blob or "not found" in blob or "не найден" in blob:
                 r["error"] = "404 Not Found"
+            elif "неактивн" in blob:
+                r["error"] = "Неактивный канал"
             elif not r.get("error"):
                 r["error"] = err or "Ошибка"
             r["status"] = "❌"
             cleaned.append(r)
             continue
-        name = (r.get("channel_name") or "").strip()
+
         subs = str(r.get("subscribers") or "")
         views = str(r.get("total_views") or "")
         emptyish = (
@@ -31,20 +51,18 @@ def _normalize_stats_results(results):
             and views in ("", "0", "None", "Неизвестно")
         )
         if emptyish:
-            cleaned.append(
-                {
-                    "url": r.get("url", ""),
-                    "channel_name": name or r.get("url", ""),
-                    "error": "404 Not Found",
-                    "status": "❌",
-                    "email": r.get("email") or "",
-                    "subscribers": "—",
-                    "total_views": "—",
-                    "videos_count": "—",
-                    "project_name": r.get("project_name", ""),
-                    "project_id": r.get("project_id", ""),
-                }
-            )
+            cleaned.append({
+                "url": r.get("url", ""),
+                "channel_name": name or r.get("url", ""),
+                "error": "404 Not Found",
+                "status": "❌",
+                "email": r.get("email") or "",
+                "subscribers": "—",
+                "total_views": "—",
+                "videos_count": "—",
+                "project_name": r.get("project_name", ""),
+                "project_id": r.get("project_id", ""),
+            })
             continue
         r["status"] = "✅"
         cleaned.append(r)
@@ -134,10 +152,7 @@ def apply_webapi_patches(WebAPI):
         proxies = list(self._proj().get("proxies") or [])
         for i, pr in enumerate(proxies):
             if pr.get("id") == proxy_id:
-                for k in (
-                    "name", "host", "port", "type", "login", "password",
-                    "purchase_date", "expiry_date", "notes",
-                ):
+                for k in ("name", "host", "port", "type", "login", "password", "purchase_date", "expiry_date", "notes"):
                     if k in data:
                         pr[k] = str(data.get(k) or "").strip()
                 proxies[i] = pr
@@ -189,11 +204,7 @@ def apply_webapi_patches(WebAPI):
                 row["project_id"] = proj.get("id", "")
                 all_stats.append(row)
         all_stats = _normalize_stats_results(all_stats)
-        return {
-            "stats": all_stats,
-            "count": len(all_stats),
-            "projects_count": len(projects),
-        }
+        return {"stats": all_stats, "count": len(all_stats), "projects_count": len(projects)}
 
     def switch_project(self, pid: str):
         self.current_stats = []
@@ -209,7 +220,6 @@ def apply_webapi_patches(WebAPI):
             if not res.get("error"):
                 self._restore_session()
                 res = {"ok": True, "id": pid}
-        # always re-bind stats from the NEW active project on disk
         try:
             self.store._index = self.store._load_index()
             self._restore_session()
@@ -228,8 +238,65 @@ def apply_webapi_patches(WebAPI):
         from modules.web_backend import sort_stats
         p = self._proj()
         results = sort_stats(list(p.get("last_stats") or []), p.get("stats_sort") or "default")
+        results = _normalize_stats_results(results)
         self.current_stats = results
         return results
+
+    try:
+        from modules.stats_parser import StatsParser
+        if not getattr(StatsParser, "_views_patched", False):
+            import re as _re
+
+            _orig_pcd = StatsParser.parse_channel_data
+
+            def parse_channel_data(self, url):
+                data = _orig_pcd(self, url)
+                if not isinstance(data, dict) or data.get("error"):
+                    return data
+                name = (data.get("channel_name") or "").strip()
+                if name.lower() in ("youtube", "www.youtube.com"):
+                    data["error"] = "Неактивный канал"
+                    data["status"] = "❌"
+                    return data
+
+                views = str(data.get("total_views") or "0")
+                n = self.parse_number(views)
+                need_fix = (n <= 0) or (n < 50 and data.get("videos_count") not in ("0", "", None))
+                if need_fix:
+                    try:
+                        src = self.driver.page_source if self.driver else ""
+                    except Exception:
+                        src = ""
+                    found_text = None
+                    m = _re.search(r'"viewCountText"\s*:\s*\{[^}]*?"simpleText"\s*:\s*"([^"]+)"', src)
+                    if not m:
+                        m = _re.search(r'"viewCountText"\s*:\s*"([^"]+)"', src)
+                    if m:
+                        found_text = m.group(1)
+                    if not found_text:
+                        m = _re.search(
+                            r'([\d\s\u00a0.,]+)\s*(тыс\.?|млн\.?|млрд\.?|K|M|B)?\s*(?:просмотр|views?)',
+                            src,
+                            _re.I,
+                        )
+                        if m:
+                            found_text = (m.group(1) + " " + (m.group(2) or "")).strip()
+                    if found_text:
+                        n2 = self.parse_number(found_text)
+                        if n2 > n:
+                            data["total_views_num"] = n2
+                            data["total_views"] = self.format_large_number(n2)
+                            n = n2
+                if n > 0:
+                    data["total_views_num"] = n
+                    if self.parse_number(str(data.get("total_views") or "")) == n:
+                        data["total_views"] = self.format_large_number(n)
+                return data
+
+            StatsParser.parse_channel_data = parse_channel_data
+            StatsParser._views_patched = True
+    except Exception as e:
+        print("views patch:", e)
 
     try:
         from modules.stats_parser import StatsParser
