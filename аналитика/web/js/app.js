@@ -1,20 +1,51 @@
-/* global pywebview */
 const App = {
   selectedScript: null,
   parsing: false,
+  _es: null,
 
   async api(method, ...args) {
     try {
-      if (!window.pywebview || !window.pywebview.api) {
-        console.warn("pywebview API not ready");
-        return null;
+      const res = await fetch("/api/rpc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method, args }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.ok === false) {
+        const err = (data && data.error) || res.statusText;
+        App.setStatus("Ошибка: " + err);
+        return data && data.result !== undefined ? data.result : { error: err };
       }
-      return await window.pywebview.api[method](...args);
+      return data.result;
     } catch (e) {
       console.error(method, e);
-      App.setStatus("Ошибка: " + e);
+      App.setStatus("Ошибка сети: " + e);
       return null;
     }
+  },
+
+  connectEvents() {
+    if (App._es) {
+      try { App._es.close(); } catch (_) {}
+    }
+    const es = new EventSource("/api/events");
+    App._es = es;
+
+    es.addEventListener("parse_progress", (ev) => {
+      try { App.onParseProgress(JSON.parse(ev.data)); } catch (_) {}
+    });
+    es.addEventListener("parse_done", (ev) => {
+      try { App.onParseDone(JSON.parse(ev.data)); } catch (_) {}
+    });
+    es.addEventListener("video_log", (ev) => {
+      try { App.onVideoLog(JSON.parse(ev.data)); } catch (_) {}
+    });
+    es.addEventListener("video_done", (ev) => {
+      try { App.onVideoDone(JSON.parse(ev.data)); } catch (_) {}
+    });
+    es.addEventListener("bot_log", (ev) => {
+      try { App.onBotLog(JSON.parse(ev.data)); } catch (_) {}
+    });
   },
 
   setStatus(text) {
@@ -32,6 +63,8 @@ const App = {
   },
 
   async init() {
+    App.connectEvents();
+
     document.querySelectorAll(".nav-item").forEach((btn) => {
       btn.addEventListener("click", () => App.navigate(btn.dataset.page));
     });
@@ -149,11 +182,14 @@ const App = {
   },
 
   async pickLinksFile() {
-    const path = await App.api("pick_file", "Выберите файл ссылок", [["Text", "*.txt"]]);
-    if (path) {
-      document.getElementById("links-file").value = path;
-      App.setStatus("Файл ссылок: " + path);
-    }
+    const current = document.getElementById("links-file").value || "";
+    const path = prompt("Полный путь к файлу со ссылками (links.txt):", current);
+    if (path === null) return;
+    const trimmed = path.trim();
+    if (!trimmed) return;
+    document.getElementById("links-file").value = trimmed;
+    await App.api("set_links_file", trimmed);
+    App.setStatus("Файл ссылок: " + trimmed);
   },
 
   async exportStats() {
@@ -166,6 +202,10 @@ const App = {
     App.setStatus("Обновление аккаунтов…");
     const data = await App.api("refresh_accounts");
     if (!data) return;
+    if (data.error) {
+      alert(data.error);
+      return;
+    }
     const foldersEl = document.getElementById("accounts-folders");
     if (data.folders && data.folders.length) {
       foldersEl.innerHTML = data.folders
@@ -196,11 +236,10 @@ const App = {
   },
 
   async addAccountsFolder() {
-    const path = await App.api("pick_folder", "Папка с аккаунтами");
-    if (path) {
-      await App.api("add_accounts_folder", path);
-      App.refreshAccounts();
-    }
+    const path = prompt("Полный путь к папке с аккаунтами:");
+    if (!path || !path.trim()) return;
+    await App.api("add_accounts_folder", path.trim());
+    App.refreshAccounts();
   },
 
   async loadVideoScripts() {
@@ -231,11 +270,10 @@ const App = {
   },
 
   async addVideoScript() {
-    const path = await App.api("pick_file", "Python скрипт", [["Python", "*.py"]]);
-    if (path) {
-      await App.api("add_video_script", path);
-      App.loadVideoScripts();
-    }
+    const path = prompt("Полный путь к .py скрипту:");
+    if (!path || !path.trim()) return;
+    await App.api("add_video_script", path.trim());
+    App.loadVideoScripts();
   },
 
   async removeScript(idx) {
@@ -323,7 +361,4 @@ function esc(s) {
     .replace(/"/g, "&quot;");
 }
 
-window.addEventListener("pywebviewready", () => App.init());
-setTimeout(() => {
-  if (window.pywebview && window.pywebview.api) App.init();
-}, 500);
+document.addEventListener("DOMContentLoaded", () => App.init());
