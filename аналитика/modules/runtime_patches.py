@@ -1,4 +1,4 @@
-"""Runtime patches: multi-proxy, themes, 404 normalize, all-projects stats."""
+"""Runtime patches: multi-proxy, themes, 404 normalize, project isolation."""
 from __future__ import annotations
 
 import uuid
@@ -58,6 +58,7 @@ def apply_webapi_patches(WebAPI):
     _orig_get_config = WebAPI.get_config
     _orig_save_proxy = WebAPI.save_proxy
     _orig_get_dashboard = WebAPI.get_dashboard
+    _orig_switch = getattr(WebAPI, "switch_project", None)
 
     def get_config(self):
         cfg = _orig_get_config(self)
@@ -164,7 +165,7 @@ def apply_webapi_patches(WebAPI):
             p = self._proj()
             proxies = p.get("proxies") or []
             if data and "proxy_html" in data:
-                extra = "<p><strong>📡 Прокси в списке:</strong> %d</p>" % len(proxies)
+                extra = "<p><strong>Прокси в списке:</strong> %d</p>" % len(proxies)
                 if "Прокси в списке" not in data["proxy_html"]:
                     data["proxy_html"] = extra + data["proxy_html"]
         except Exception:
@@ -174,6 +175,7 @@ def apply_webapi_patches(WebAPI):
     def get_all_projects_stats(self):
         all_stats = []
         try:
+            self.store._index = self.store._load_index()
             projects = self.store._index.get("projects", [])
         except Exception:
             projects = []
@@ -193,6 +195,42 @@ def apply_webapi_patches(WebAPI):
             "projects_count": len(projects),
         }
 
+    def switch_project(self, pid: str):
+        self.current_stats = []
+        self.current_accounts = []
+        try:
+            self.store._index = self.store._load_index()
+        except Exception:
+            pass
+        if _orig_switch:
+            res = _orig_switch(self, pid)
+        else:
+            res = self.store.set_active(pid)
+            if not res.get("error"):
+                self._restore_session()
+                res = {"ok": True, "id": pid}
+        # always re-bind stats from the NEW active project on disk
+        try:
+            self.store._index = self.store._load_index()
+            self._restore_session()
+        except Exception:
+            pass
+        if isinstance(res, dict) and not res.get("error"):
+            res["stats_count"] = len(getattr(self, "current_stats", []) or [])
+            res["project_name"] = (self._proj() or {}).get("name", "")
+        return res
+
+    def get_cached_stats(self):
+        try:
+            self.store._index = self.store._load_index()
+        except Exception:
+            pass
+        from modules.web_backend import sort_stats
+        p = self._proj()
+        results = sort_stats(list(p.get("last_stats") or []), p.get("stats_sort") or "default")
+        self.current_stats = results
+        return results
+
     try:
         from modules.stats_parser import StatsParser
         if not getattr(StatsParser, "_norm_patched", False):
@@ -207,6 +245,8 @@ def apply_webapi_patches(WebAPI):
     except Exception as e:
         print("parse_channels patch:", e)
 
+    WebAPI.switch_project = switch_project
+    WebAPI.get_cached_stats = get_cached_stats
     WebAPI.get_all_projects_stats = get_all_projects_stats
     WebAPI.get_config = get_config
     WebAPI.set_theme = set_theme
