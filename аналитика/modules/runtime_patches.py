@@ -13,16 +13,39 @@ def _normalize_stats_results(results):
         r.setdefault("email", "")
         r.setdefault("url", r.get("url") or "")
         err = str(r.get("error") or "")
-        blob = (err + " " + str(r.get("status") or "") + " " + str(r.get("channel_name") or "")).lower()
-        if r.get("error") or ("404" in blob) or ("not found" in blob):
+        name = (r.get("channel_name") or "").strip()
+        name_low = name.lower()
+        blob = (err + " " + str(r.get("status") or "") + " " + name_low).lower()
+
+        # YouTube as channel name = inactive / redirected
+        if name_low in ("youtube", "www.youtube.com"):
+            cleaned.append(
+                {
+                    "url": r.get("url", ""),
+                    "channel_name": name,
+                    "error": "Неактивный канал",
+                    "status": "❌",
+                    "email": r.get("email") or "",
+                    "subscribers": "—",
+                    "total_views": "—",
+                    "videos_count": "—",
+                    "project_name": r.get("project_name", ""),
+                    "project_id": r.get("project_id", ""),
+                }
+            )
+            continue
+
+        if r.get("error") or ("404" in blob) or ("not found" in blob) or ("неактивн" in blob):
             if "404" in blob or "not found" in blob or "не найден" in blob:
                 r["error"] = "404 Not Found"
+            elif "неактивн" in blob:
+                r["error"] = "Неактивный канал"
             elif not r.get("error"):
                 r["error"] = err or "Ошибка"
             r["status"] = "❌"
             cleaned.append(r)
             continue
-        name = (r.get("channel_name") or "").strip()
+
         subs = str(r.get("subscribers") or "")
         views = str(r.get("total_views") or "")
         emptyish = (
@@ -209,7 +232,6 @@ def apply_webapi_patches(WebAPI):
             if not res.get("error"):
                 self._restore_session()
                 res = {"ok": True, "id": pid}
-        # always re-bind stats from the NEW active project on disk
         try:
             self.store._index = self.store._load_index()
             self._restore_session()
@@ -228,6 +250,7 @@ def apply_webapi_patches(WebAPI):
         from modules.web_backend import sort_stats
         p = self._proj()
         results = sort_stats(list(p.get("last_stats") or []), p.get("stats_sort") or "default")
+        results = _normalize_stats_results(results)
         self.current_stats = results
         return results
 
