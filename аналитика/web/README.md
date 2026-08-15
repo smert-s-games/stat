@@ -1,33 +1,19 @@
 # Веб-интерфейс YT Analytics
 
-Настоящий HTML/CSS UI через [pywebview](https://pywebview.flowrl.com/).
-
-## Установка
-
-```bash
-pip install pywebview
-# Windows: обычно достаточно
-# Linux: может понадобиться python3-gi / WebKit
-```
+Локальный HTTP-сервер + браузер (без pywebview).
 
 ## Запуск
 
-Из папки `аналитика`:
-
 ```bash
+cd аналитика
 python run_web.py
 ```
 
-Старый Tkinter-интерфейс:
+Откроется http://127.0.0.1:8765/
 
-```bash
-python run.py
-```
+Остановка: Ctrl+C в терминале.
 
-## Структура
+## Примечание
 
-- `index.html` — разметка
-- `css/styles.css` — стили (CSS-переменные, светлая/тёмная тема)
-- `js/app.js` — фронтенд
-- `../web_api.py` — Python API для JS
-- `../run_web.py` — точка входа
+Пути к файлам (links.txt, папки аккаунтов, .py скрипты) вводятся вручную
+(полный путь), т.к. браузер не отдаёт абсолютные пути с диска.
