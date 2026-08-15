@@ -16,10 +16,12 @@
     if (!r) return true;
     var err = String(r.error == null ? "" : r.error);
     var st = String(r.status == null ? "" : r.status);
-    var name = String(r.channel_name == null ? "" : r.channel_name);
-    var blob = (err + " " + st + " " + name).toLowerCase();
+    var name = String(r.channel_name == null ? "" : r.channel_name).trim();
+    var nameLow = name.toLowerCase();
+    var blob = (err + " " + st + " " + nameLow).toLowerCase();
     if (blob.indexOf("404") >= 0) return true;
     if (blob.indexOf("not found") >= 0) return true;
+    if (nameLow === "youtube" || nameLow === "www.youtube.com") return true;
     if (err !== "" && err !== "undefined" && err !== "null") return true;
     return false;
   }
@@ -38,7 +40,9 @@
         if (isErrorRow(r)) {
           var label = "Ошибка";
           var low = (err + " " + name).toLowerCase();
-          if (low.indexOf("404") >= 0 || low.indexOf("not found") >= 0) {
+          if (name.trim().toLowerCase() === "youtube" || name.trim().toLowerCase() === "www.youtube.com") {
+            label = "Неактивный канал";
+          } else if (low.indexOf("404") >= 0 || low.indexOf("not found") >= 0) {
             label = "404 Not Found";
           } else if (err) {
             label = err;
@@ -219,8 +223,6 @@
     App.setStatus("Сводка по всем проектам: " + list.length);
   };
 
-  // Override loadProjects: пункт «Все проекты» внутри select
-  var _loadProjects = App.loadProjects;
   App.loadProjects = async function () {
     var data = await App.api("list_projects");
     var sel = document.getElementById("project-select");
@@ -244,7 +246,6 @@
     if (prev === "__all__") sel.value = "__all__";
   };
 
-  // Override switchProject: очистка таблицы + __all__
   App.switchProject = async function (pid) {
     if (!pid) return;
     if (pid === "__all__") {
@@ -258,7 +259,6 @@
     await App.reloadAll();
   };
 
-  // Always paint table (even empty)
   App.loadCachedStats = async function () {
     var results = await App.api("get_cached_stats");
     var list = Array.isArray(results) ? results : [];
