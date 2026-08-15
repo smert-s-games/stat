@@ -1,12 +1,13 @@
 {
+  "theme": "dark",
+  "telegram_bot_token": "",
+  "telegram_chat_id": "",
   "accounts_folders": [
     "D:/Projects/BAS/ютуб/профили/профили на прогрев 2",
     "D:/Projects/BAS/ютуб/аккаунты/профили",
     "D:/Projects/BAS/ютуб/профили/профили на прогрев"
   ],
   "links_file": "D:/Projects/BAS/ютуб/аккаунты/ссылки на каналы/2.txt",
-  "telegram_bot_token": "",
-  "telegram_chat_id": "",
   "proxy": {
     "purchase_date": "12.12.2000",
     "expiry_date": "13.12.2000"
@@ -15,7 +16,6 @@
     "purchase_date": "12.12.2000",
     "expiry_date": "12.12.2000"
   },
-  "theme": "dark",
   "video_scripts": [],
   "accounts_folder": "D:/Projects/BAS/ютуб/профили/профили на прогрев 2",
   "scheduled_tasks": {}
