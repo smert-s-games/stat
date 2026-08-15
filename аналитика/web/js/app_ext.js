@@ -1,4 +1,4 @@
-/* Extensions: multi-proxy, themes, 404 via string match, all-projects */
+/* Extensions: multi-proxy, themes, 404, project isolation, all-projects */
 (function () {
   if (!window.App) return;
 
@@ -198,7 +198,10 @@
 
   App.showAllProjectsStats = async function () {
     var data = await App.api("get_all_projects_stats");
-    if (!data) return;
+    if (!data) {
+      App.renderStats([]);
+      return;
+    }
     var list = data.stats || [];
     App.renderStats(list);
     var log = document.getElementById("stats-log");
@@ -210,8 +213,61 @@
         (data.projects_count || "?") +
         " проектов.\n";
     }
+    var sel = document.getElementById("project-select");
+    if (sel) sel.value = "__all__";
     App.navigate("stats");
     App.setStatus("Сводка по всем проектам: " + list.length);
+  };
+
+  // Override loadProjects: пункт «Все проекты» внутри select
+  var _loadProjects = App.loadProjects;
+  App.loadProjects = async function () {
+    var data = await App.api("list_projects");
+    var sel = document.getElementById("project-select");
+    if (!data || !sel) return;
+    var prev = sel.value;
+    var opts = '<option value="__all__">Все проекты</option>';
+    opts += (data.projects || [])
+      .map(function (p) {
+        return (
+          '<option value="' +
+          esc(p.id) +
+          '"' +
+          (p.id === data.active_id ? " selected" : "") +
+          ">" +
+          esc(p.name) +
+          "</option>"
+        );
+      })
+      .join("");
+    sel.innerHTML = opts;
+    if (prev === "__all__") sel.value = "__all__";
+  };
+
+  // Override switchProject: очистка таблицы + __all__
+  App.switchProject = async function (pid) {
+    if (!pid) return;
+    if (pid === "__all__") {
+      await App.showAllProjectsStats();
+      return;
+    }
+    App.renderStats([]);
+    var log = document.getElementById("stats-log");
+    if (log) log.textContent = "Загрузка проекта…\n";
+    await App.api("switch_project", pid);
+    await App.reloadAll();
+  };
+
+  // Always paint table (even empty)
+  App.loadCachedStats = async function () {
+    var results = await App.api("get_cached_stats");
+    var list = Array.isArray(results) ? results : [];
+    App.renderStats(list);
+    var log = document.getElementById("stats-log");
+    if (log) {
+      if (list.length) log.textContent = "Сессия проекта: " + list.length + " каналов.\n";
+      else log.textContent = "В этом проекте нет сохранённой статистики.\n";
+    }
   };
 
   var _init = App.init;
@@ -221,11 +277,7 @@
       await App.loadProxies();
       App.renderThemePills();
       var btn = document.getElementById("btn-all-projects");
-      if (btn) {
-        btn.onclick = function () {
-          App.showAllProjectsStats();
-        };
-      }
+      if (btn) btn.style.display = "none";
       var cfg = await App.api("get_config");
       if (cfg && (cfg.ui_theme || cfg.theme)) {
         document.documentElement.setAttribute("data-theme", cfg.ui_theme || cfg.theme);
@@ -247,6 +299,7 @@
 
   var _reloadAll = App.reloadAll;
   App.reloadAll = async function () {
+    App.renderStats([]);
     await _reloadAll.call(App);
     var results = await App.api("get_cached_stats");
     App.renderStats(Array.isArray(results) ? results : []);
