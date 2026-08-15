@@ -1,4 +1,4 @@
-"""Runtime patches: multi-proxy, themes, 404 normalize, project isolation."""
+"""Runtime patches: multi-proxy, themes, 404, views extraction fix."""
 from __future__ import annotations
 
 import uuid
@@ -210,11 +210,7 @@ def apply_webapi_patches(WebAPI):
                 row["project_id"] = proj.get("id", "")
                 all_stats.append(row)
         all_stats = _normalize_stats_results(all_stats)
-        return {
-            "stats": all_stats,
-            "count": len(all_stats),
-            "projects_count": len(projects),
-        }
+        return {"stats": all_stats, "count": len(all_stats), "projects_count": len(projects)}
 
     def switch_project(self, pid: str):
         self.current_stats = []
@@ -252,7 +248,6 @@ def apply_webapi_patches(WebAPI):
         self.current_stats = results
         return results
 
-    # CRITICAL: fix parse_number so '5,000' → 5000 not 5
     try:
         from modules.stats_parser import StatsParser
         if not getattr(StatsParser, "_parse_number_fixed", False):
@@ -307,7 +302,7 @@ def apply_webapi_patches(WebAPI):
 
     try:
         from modules.stats_parser import StatsParser
-        if not getattr(StatsParser, "_views_patched", False):
+        if not getattr(StatsParser, "_views_patched_v2", False):
             import re as _re
 
             _orig_pcd = StatsParser.parse_channel_data
@@ -322,40 +317,48 @@ def apply_webapi_patches(WebAPI):
                     data["status"] = "❌"
                     return data
 
-                views = str(data.get("total_views") or "0")
-                n = self.parse_number(views)
-                need_fix = (n <= 0) or (n < 50 and data.get("videos_count") not in ("0", "", None))
-                if need_fix:
-                    try:
-                        src = self.driver.page_source if self.driver else ""
-                    except Exception:
-                        src = ""
-                    found_text = None
-                    m = _re.search(r'"viewCountText"\s*:\s*\{[^}]*?"simpleText"\s*:\s*"([^"]+)"', src)
-                    if not m:
-                        m = _re.search(r'"viewCountText"\s*:\s*"([^"]+)"', src)
-                    if m:
-                        found_text = m.group(1)
-                    if not found_text:
-                        m = _re.search(
-                            r'([\d\s\u00a0.,]+)\s*(тыс\.?|млн\.?|млрд\.?|K|M|B)?\s*(?:просмотр|views?)',
-                            src,
-                            _re.I,
+                n = int(data.get("total_views_num") or 0)
+                if not n:
+                    n = self.parse_number(str(data.get("total_views") or "0"))
+
+                try:
+                    src = self.driver.page_source if self.driver else ""
+                except Exception:
+                    src = ""
+
+                cands = []
+                for pat in (
+                    r'"aboutChannelViewModel"\s*:\s*\{',
+                    r'"channelAboutFullMetadataRenderer"\s*:\s*\{',
+                ):
+                    for m in _re.finditer(pat, src):
+                        chunk = src[m.start() : m.start() + 6000]
+                        vm = _re.search(
+                            r'"viewCountText"\s*:\s*(?:\{[^}]*?"simpleText"\s*:\s*"([^"]+)"|"([^"]+)")',
+                            chunk,
                         )
-                        if m:
-                            found_text = (m.group(1) + " " + (m.group(2) or "")).strip()
-                    if found_text:
-                        n2 = self.parse_number(found_text)
-                        if n2 > n:
-                            data["total_views_num"] = n2
-                            data["total_views"] = self.format_large_number(n2)
-                            n = n2
+                        if vm:
+                            cands.append(self.parse_number(vm.group(1) or vm.group(2)))
+
+                for m in _re.finditer(
+                    r'"viewCountText"\s*:\s*\{[^}]*?"simpleText"\s*:\s*"([^"]+)"',
+                    src,
+                ):
+                    cands.append(self.parse_number(m.group(1)))
+
+                cands = [c for c in cands if c and c > 0]
+                if cands:
+                    best = max(cands)
+                    if best > n:
+                        n = best
+
                 if n > 0:
                     data["total_views_num"] = n
                     data["total_views"] = self.format_large_number(n)
                 return data
 
             StatsParser.parse_channel_data = parse_channel_data
+            StatsParser._views_patched_v2 = True
             StatsParser._views_patched = True
     except Exception as e:
         print("views patch:", e)
