@@ -1,4 +1,4 @@
-/* Extensions: multi-proxy, themes, stronger 404 badges */
+/* Extensions: multi-proxy, themes, 404 via string match, all-projects */
 (function () {
   if (!window.App) return;
 
@@ -12,26 +12,45 @@
     { id: "purple", label: "Фиолет" },
   ];
 
-  var _renderStats = App.renderStats;
+  function isErrorRow(r) {
+    if (!r) return true;
+    var err = String(r.error == null ? "" : r.error);
+    var st = String(r.status == null ? "" : r.status);
+    var name = String(r.channel_name == null ? "" : r.channel_name);
+    var blob = (err + " " + st + " " + name).toLowerCase();
+    if (blob.indexOf("404") >= 0) return true;
+    if (blob.indexOf("not found") >= 0) return true;
+    if (err !== "" && err !== "undefined" && err !== "null") return true;
+    return false;
+  }
+
   App.renderStats = function (results) {
     var tbody = document.getElementById("stats-tbody");
-    if (!tbody) return _renderStats && _renderStats.call(App, results);
+    if (!tbody) return;
     if (!results || !results.length) {
       tbody.innerHTML = '<tr><td colspan="7" class="empty">Нет данных</td></tr>';
       return;
     }
     tbody.innerHTML = results
       .map(function (r) {
-        var errText = r.error ? String(r.error) : "";
-        var isErr = !!(errText || r.status === "❌");
-        if (isErr) {
-          var label = errText || "404 Not Found";
+        var err = String(r.error == null ? "" : r.error);
+        var name = String(r.channel_name == null ? "" : r.channel_name);
+        if (isErrorRow(r)) {
+          var label = "Ошибка";
+          var low = (err + " " + name).toLowerCase();
+          if (low.indexOf("404") >= 0 || low.indexOf("not found") >= 0) {
+            label = "404 Not Found";
+          } else if (err) {
+            label = err;
+          }
           return (
             '<tr class="row-error"><td>' +
-            esc(r.channel_name || r.url || "") +
+            esc(name || r.url || "") +
             "</td><td>—</td><td>—</td><td>—</td><td>" +
             esc(r.url || "") +
-            '</td><td>—</td><td><span class="badge badge-err">❌ ' +
+            "</td><td>" +
+            esc(r.email || r.project_name || "—") +
+            '</td><td><span class="badge badge-err">❌ ' +
             esc(label) +
             "</span></td></tr>"
           );
@@ -177,12 +196,36 @@
     App.refreshHome();
   };
 
+  App.showAllProjectsStats = async function () {
+    var data = await App.api("get_all_projects_stats");
+    if (!data) return;
+    var list = data.stats || [];
+    App.renderStats(list);
+    var log = document.getElementById("stats-log");
+    if (log) {
+      log.textContent =
+        "Все проекты: " +
+        list.length +
+        " каналов из " +
+        (data.projects_count || "?") +
+        " проектов.\n";
+    }
+    App.navigate("stats");
+    App.setStatus("Сводка по всем проектам: " + list.length);
+  };
+
   var _init = App.init;
   App.init = async function () {
     await _init.call(App);
     try {
       await App.loadProxies();
       App.renderThemePills();
+      var btn = document.getElementById("btn-all-projects");
+      if (btn) {
+        btn.onclick = function () {
+          App.showAllProjectsStats();
+        };
+      }
       var cfg = await App.api("get_config");
       if (cfg && (cfg.ui_theme || cfg.theme)) {
         document.documentElement.setAttribute("data-theme", cfg.ui_theme || cfg.theme);
@@ -200,5 +243,12 @@
     var st = document.getElementById("status-theme");
     if (st) st.textContent = "Тема: " + res.theme;
     App.renderThemePills();
+  };
+
+  var _reloadAll = App.reloadAll;
+  App.reloadAll = async function () {
+    await _reloadAll.call(App);
+    var results = await App.api("get_cached_stats");
+    App.renderStats(Array.isArray(results) ? results : []);
   };
 })();
