@@ -1,4 +1,4 @@
-"""Runtime patches: multi-proxy, themes, 404/status normalize after parse."""
+"""Runtime patches: multi-proxy, themes, 404 normalize, all-projects stats."""
 from __future__ import annotations
 
 import uuid
@@ -12,11 +12,13 @@ def _normalize_stats_results(results):
         r = dict(r)
         r.setdefault("email", "")
         r.setdefault("url", r.get("url") or "")
-        if r.get("error"):
-            err = str(r.get("error") or "")
-            low = err.lower()
-            if "404" in err or "not found" in low or "не найден" in low:
+        err = str(r.get("error") or "")
+        blob = (err + " " + str(r.get("status") or "") + " " + str(r.get("channel_name") or "")).lower()
+        if r.get("error") or ("404" in blob) or ("not found" in blob):
+            if "404" in blob or "not found" in blob or "не найден" in blob:
                 r["error"] = "404 Not Found"
+            elif not r.get("error"):
+                r["error"] = err or "Ошибка"
             r["status"] = "❌"
             cleaned.append(r)
             continue
@@ -39,6 +41,8 @@ def _normalize_stats_results(results):
                     "subscribers": "—",
                     "total_views": "—",
                     "videos_count": "—",
+                    "project_name": r.get("project_name", ""),
+                    "project_id": r.get("project_id", ""),
                 }
             )
             continue
@@ -167,6 +171,28 @@ def apply_webapi_patches(WebAPI):
             pass
         return data
 
+    def get_all_projects_stats(self):
+        all_stats = []
+        try:
+            projects = self.store._index.get("projects", [])
+        except Exception:
+            projects = []
+        for proj in projects:
+            name = proj.get("name") or proj.get("id") or "?"
+            for r in proj.get("last_stats") or []:
+                if not isinstance(r, dict):
+                    continue
+                row = dict(r)
+                row["project_name"] = name
+                row["project_id"] = proj.get("id", "")
+                all_stats.append(row)
+        all_stats = _normalize_stats_results(all_stats)
+        return {
+            "stats": all_stats,
+            "count": len(all_stats),
+            "projects_count": len(projects),
+        }
+
     try:
         from modules.stats_parser import StatsParser
         if not getattr(StatsParser, "_norm_patched", False):
@@ -181,6 +207,7 @@ def apply_webapi_patches(WebAPI):
     except Exception as e:
         print("parse_channels patch:", e)
 
+    WebAPI.get_all_projects_stats = get_all_projects_stats
     WebAPI.get_config = get_config
     WebAPI.set_theme = set_theme
     WebAPI.toggle_theme = toggle_theme
