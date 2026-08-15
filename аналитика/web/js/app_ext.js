@@ -201,26 +201,36 @@
   };
 
   App.showAllProjectsStats = async function () {
-    var data = await App.api("get_all_projects_stats");
-    if (!data) {
-      App.renderStats([]);
-      return;
-    }
-    var list = data.stats || [];
-    App.renderStats(list);
-    var log = document.getElementById("stats-log");
-    if (log) {
-      log.textContent =
-        "Все проекты: " +
-        list.length +
-        " каналов из " +
-        (data.projects_count || "?") +
-        " проектов.\n";
-    }
+    App.viewMode = "all";
     var sel = document.getElementById("project-select");
     if (sel) sel.value = "__all__";
-    App.navigate("stats");
-    App.setStatus("Сводка по всем проектам: " + list.length);
+    var dash = await App.api("get_all_projects_dashboard");
+    if (!dash || dash.error) {
+      alert("Не удалось загрузить сводку: " + ((dash && dash.error) || "нет ответа"));
+      return;
+    }
+    var setT = function (id, val) {
+      var e = document.getElementById(id);
+      if (e) e.textContent = val != null ? val : "—";
+    };
+    setT("kpi-channels", dash.channels);
+    setT("kpi-views", dash.views);
+    setT("kpi-subs", dash.subs);
+    setT("kpi-accounts", dash.accounts);
+    var pn = document.getElementById("home-project-name");
+    if (pn) pn.textContent = "· Все проекты (" + (dash.projects_count || 0) + ")";
+    var hp = document.getElementById("home-proxy");
+    if (hp) hp.innerHTML = dash.proxy_html || "<span class='empty'>Нет данных</span>";
+    var data = await App.api("get_all_projects_stats");
+    if (data && data.stats) {
+      App.renderStats(data.stats);
+      var log = document.getElementById("stats-log");
+      if (log)
+        log.textContent =
+          "Все проекты: " + data.stats.length + " каналов из " + (data.projects_count || "?") + " проектов.\n";
+    }
+    App.navigate("home");
+    App.setStatus("Все проекты: " + (dash.channels || 0) + " каналов");
   };
 
   App.loadProjects = async function () {
@@ -252,6 +262,7 @@
       await App.showAllProjectsStats();
       return;
     }
+    App.viewMode = "project";
     App.renderStats([]);
     var log = document.getElementById("stats-log");
     if (log) log.textContent = "Загрузка проекта…\n";
