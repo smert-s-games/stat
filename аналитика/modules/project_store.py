@@ -31,11 +31,13 @@ def _empty_project(name: str, pid: str | None = None) -> dict:
         "accounts_folders": [],
         "video_scripts": [],
         "proxy": {"purchase_date": "", "expiry_date": ""},
+        "proxies": [],
         "server": {"purchase_date": "", "expiry_date": ""},
         "last_stats": [],
         "expenses": [],
         "stats_sort": "default",
         "accounts_sort": "materials_desc",
+        "theme": "light",
     }
 
 
@@ -111,6 +113,23 @@ class ProjectStore:
     def get_project(self, pid: str) -> dict | None:
         for p in self._index.get("projects", []):
             if p["id"] == pid:
+                if "proxies" not in p:
+                    p["proxies"] = []
+                single = p.get("proxy") or {}
+                if single.get("expiry_date") or single.get("purchase_date"):
+                    if not p["proxies"]:
+                        p["proxies"] = [{
+                            "id": "legacy",
+                            "name": "Основной",
+                            "host": "",
+                            "port": "",
+                            "type": "",
+                            "login": "",
+                            "password": "",
+                            "purchase_date": single.get("purchase_date", ""),
+                            "expiry_date": single.get("expiry_date", ""),
+                            "notes": "",
+                        }]
                 return p
         return None
 
