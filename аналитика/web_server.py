@@ -93,6 +93,19 @@ def _bridge_js(code: str):
 api._js = _bridge_js  # type: ignore
 
 
+def _set_links_file(path: str):
+    path = (path or "").strip()
+    if not path:
+        return {"error": "пустой путь"}
+    api.config["links_file"] = path
+    api._save_config()
+    return {"ok": True, "path": path}
+
+
+if not hasattr(api, "set_links_file"):
+    api.set_links_file = _set_links_file  # type: ignore
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "YTAnalytics/1.0"
 
