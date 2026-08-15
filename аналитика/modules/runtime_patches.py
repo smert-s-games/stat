@@ -189,14 +189,20 @@ def apply_webapi_patches(WebAPI):
 
     def get_all_projects_stats(self):
         all_stats = []
+        projects = []
         try:
             self.store._index = self.store._load_index()
-            projects = self.store._index.get("projects", [])
-        except Exception:
-            projects = []
+            projects = list(self.store._index.get("projects") or [])
+        except Exception as e:
+            return {"stats": [], "count": 0, "projects_count": 0, "error": str(e)}
         for proj in projects:
+            if not isinstance(proj, dict):
+                continue
             name = proj.get("name") or proj.get("id") or "?"
-            for r in proj.get("last_stats") or []:
+            stats = proj.get("last_stats") or []
+            if not isinstance(stats, list):
+                stats = []
+            for r in stats:
                 if not isinstance(r, dict):
                     continue
                 row = dict(r)
@@ -204,7 +210,11 @@ def apply_webapi_patches(WebAPI):
                 row["project_id"] = proj.get("id", "")
                 all_stats.append(row)
         all_stats = _normalize_stats_results(all_stats)
-        return {"stats": all_stats, "count": len(all_stats), "projects_count": len(projects)}
+        return {
+            "stats": all_stats,
+            "count": len(all_stats),
+            "projects_count": len(projects),
+        }
 
     def switch_project(self, pid: str):
         self.current_stats = []
@@ -241,6 +251,59 @@ def apply_webapi_patches(WebAPI):
         results = _normalize_stats_results(results)
         self.current_stats = results
         return results
+
+    # CRITICAL: fix parse_number so '5,000' → 5000 not 5
+    try:
+        from modules.stats_parser import StatsParser
+        if not getattr(StatsParser, "_parse_number_fixed", False):
+            import re as _re
+
+            def parse_number(self, text):
+                if not text or text in ("Неизвестно", "0", "-", "N/A", "—"):
+                    return 0
+                text = str(text).strip().lower().replace("\xa0", " ").replace("\u202f", " ")
+                text = _re.sub(r"(подписчик|просмотр|видео|views?|subscribers?|videos?).*$", "", text, flags=_re.I)
+                text = text.strip()
+                multipliers = {
+                    "тыс.": 1_000, "тыс": 1_000, "thousand": 1_000, "k": 1_000,
+                    "млн.": 1_000_000, "млн": 1_000_000, "million": 1_000_000, "m": 1_000_000,
+                    "млрд.": 1_000_000_000, "млрд": 1_000_000_000, "billion": 1_000_000_000, "b": 1_000_000_000,
+                }
+                mult = 1
+                for key, val in sorted(multipliers.items(), key=lambda x: -len(x[0])):
+                    if key in text:
+                        mult = val
+                        text = text.replace(key, "").strip()
+                        break
+                text = text.replace(" ", "")
+                if not text:
+                    return 0
+                if _re.fullmatch(r"\d{1,3}(,\d{3})+(\.\d+)?", text):
+                    text = text.replace(",", "")
+                elif _re.fullmatch(r"\d{1,3}(\.\d{3})+(,\d+)?", text):
+                    text = text.replace(".", "").replace(",", ".")
+                elif "," in text and "." not in text:
+                    left, right = text.split(",", 1)
+                    if right.isdigit() and len(right) == 3 and left.isdigit():
+                        text = left + right
+                    else:
+                        text = left + "." + right
+                elif "." in text and "," not in text:
+                    left, right = text.split(".", 1)
+                    if right.isdigit() and len(right) == 3 and left.isdigit() and mult > 1:
+                        text = left + right
+                cleaned = _re.sub(r"[^\d.]", "", text)
+                if not cleaned or cleaned == ".":
+                    return 0
+                try:
+                    return int(float(cleaned) * mult)
+                except ValueError:
+                    return 0
+
+            StatsParser.parse_number = parse_number
+            StatsParser._parse_number_fixed = True
+    except Exception as e:
+        print("parse_number patch:", e)
 
     try:
         from modules.stats_parser import StatsParser
@@ -289,8 +352,7 @@ def apply_webapi_patches(WebAPI):
                             n = n2
                 if n > 0:
                     data["total_views_num"] = n
-                    if self.parse_number(str(data.get("total_views") or "")) == n:
-                        data["total_views"] = self.format_large_number(n)
+                    data["total_views"] = self.format_large_number(n)
                 return data
 
             StatsParser.parse_channel_data = parse_channel_data
