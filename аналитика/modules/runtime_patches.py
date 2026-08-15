@@ -1,4 +1,4 @@
-"""Runtime patches: multi-proxy, themes, 404, correct channel views."""
+"""Runtime patches: multi-proxy, themes, 404, views, all-projects dashboard."""
 from __future__ import annotations
 
 import uuid
@@ -209,6 +209,64 @@ def apply_webapi_patches(WebAPI):
         all_stats = _normalize_stats_results(all_stats)
         return {"stats": all_stats, "count": len(all_stats), "projects_count": len(projects)}
 
+    def get_all_projects_dashboard(self):
+        """KPI на главной для режима «Все проекты»."""
+        from modules.web_backend import _is_error_result
+        try:
+            self.store._index = self.store._load_index()
+            projects = list(self.store._index.get("projects") or [])
+        except Exception as e:
+            return {"error": str(e)}
+
+        channels = views = subs = accounts = 0
+        fmt = self.stats_parser.format_large_number
+        lines = ["<p><strong>📁 Режим:</strong> Все проекты</p>"]
+        for proj in projects:
+            if not isinstance(proj, dict):
+                continue
+            name = proj.get("name") or proj.get("id") or "?"
+            stats = proj.get("last_stats") or []
+            ok_ch = 0
+            for r in stats:
+                if not isinstance(r, dict) or _is_error_result(r):
+                    continue
+                ok_ch += 1
+                channels += 1
+                try:
+                    if r.get("total_views_num") is not None:
+                        views += int(r.get("total_views_num") or 0)
+                    else:
+                        views += self.stats_parser.parse_number(r.get("total_views", "0"))
+                    if r.get("subscribers_num") is not None:
+                        subs += int(r.get("subscribers_num") or 0)
+                    else:
+                        subs += self.stats_parser.parse_number(r.get("subscribers", "0"))
+                except Exception:
+                    pass
+            acc_n = len(proj.get("last_accounts") or [])
+            accounts += acc_n
+            exp = 0.0
+            for e in proj.get("expenses") or []:
+                try:
+                    exp += float(e.get("amount") or 0)
+                except Exception:
+                    pass
+            lines.append(
+                "<p><strong>%s</strong>: %d каналов · аккаунтов %d · расходы %.2f</p>"
+                % (name, ok_ch, acc_n, exp)
+            )
+
+        return {
+            "channels": channels or "—",
+            "views": fmt(views) if channels else "—",
+            "subs": fmt(subs) if channels else "—",
+            "accounts": accounts or "—",
+            "proxy_html": "".join(lines),
+            "project_name": "Все проекты",
+            "projects_count": len(projects),
+            "expenses_total": 0,
+        }
+
     def switch_project(self, pid: str):
         self.current_stats = []
         self.current_accounts = []
@@ -305,7 +363,6 @@ def apply_webapi_patches(WebAPI):
             _orig_pcd = StatsParser.parse_channel_data
 
             def _views_from_about_only(src: str, parse_number):
-                """Только about-блоки канала — НЕ карточки видео."""
                 cands = []
                 if not src:
                     return 0
@@ -322,7 +379,6 @@ def apply_webapi_patches(WebAPI):
                             n = parse_number(vm.group(1) or vm.group(2) or "")
                             if n > 0:
                                 cands.append(n)
-                        # иногда число без Text
                         for vm in _re.finditer(r'"viewCount"\s*:\s*"?(\d+)"?', chunk):
                             n = int(vm.group(1))
                             if n > 0:
@@ -338,22 +394,18 @@ def apply_webapi_patches(WebAPI):
                     data["error"] = "Неактивный канал"
                     data["status"] = "❌"
                     return data
-
                 try:
                     src = self.driver.page_source if self.driver else ""
                 except Exception:
                     src = ""
-
                 about_n = _views_from_about_only(src, self.parse_number)
                 if about_n > 0:
                     data["total_views_num"] = about_n
                     data["total_views"] = self.format_large_number(about_n)
                 else:
-                    # не оставляем мусор с карточек: если число крошечное/сомнительное — 0
                     n = int(data.get("total_views_num") or 0) or self.parse_number(
                         str(data.get("total_views") or "0")
                     )
-                    # если на about не нашли — лучше показать 0, чем чужие 48 с видео
                     if n > 0 and n < 20:
                         data["total_views"] = "0"
                         data["total_views_num"] = 0
@@ -386,6 +438,7 @@ def apply_webapi_patches(WebAPI):
     WebAPI.switch_project = switch_project
     WebAPI.get_cached_stats = get_cached_stats
     WebAPI.get_all_projects_stats = get_all_projects_stats
+    WebAPI.get_all_projects_dashboard = get_all_projects_dashboard
     WebAPI.get_config = get_config
     WebAPI.set_theme = set_theme
     WebAPI.toggle_theme = toggle_theme
