@@ -1,0 +1,29 @@
+{
+  "active_id": "c10f285b",
+  "projects": [
+    {
+      "id": "c10f285b",
+      "name": "Основной",
+      "created_at": "2026-08-15 14:53:56",
+      "links_file": "D:/Projects/BAS/ютуб/аккаунты/ссылки на каналы/2.txt",
+      "accounts_folders": [
+        "D:/Projects/BAS/ютуб/профили/профили на прогрев 2",
+        "D:/Projects/BAS/ютуб/аккаунты/профили",
+        "D:/Projects/BAS/ютуб/профили/профили на прогрев"
+      ],
+      "video_scripts": [],
+      "proxy": {
+        "purchase_date": "12.12.2000",
+        "expiry_date": "13.12.2000"
+      },
+      "server": {
+        "purchase_date": "12.12.2000",
+        "expiry_date": "12.12.2000"
+      },
+      "last_stats": [],
+      "expenses": [],
+      "stats_sort": "default",
+      "accounts_sort": "materials_desc"
+    }
+  ]
+}
