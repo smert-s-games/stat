@@ -1,6 +1,7 @@
 const App = {
   selectedScript: null,
   parsing: false,
+  viewMode: "project", // "project" | "all"
   _es: null,
 
   async api(method, ...args) {
@@ -117,6 +118,7 @@ const App = {
       await App.showAllProjectsStats();
       return;
     }
+    App.viewMode = "project";
     App.renderStats([]);
     var log = document.getElementById("stats-log");
     if (log) log.textContent = "Загрузка проекта…\n";
@@ -125,24 +127,53 @@ const App = {
   },
 
   async showAllProjectsStats() {
-    App.setStatus("Загрузка всех проектов…");
-    var data = await App.api("get_all_projects_stats");
-    if (!data || data.error) {
-      var msg = (data && data.error) ? data.error : "Нет ответа API get_all_projects_stats";
-      App.setStatus("Ошибка: " + msg);
-      alert("Не удалось загрузить все проекты: " + msg);
-      return;
-    }
-    var list = data.stats || [];
-    App.renderStats(list);
-    var log = document.getElementById("stats-log");
-    if (log) {
-      log.textContent = "Все проекты: " + list.length + " каналов из " + (data.projects_count || "?") + " проектов.\n";
-    }
+    App.setStatus("Сводка по всем проектам…");
+    App.viewMode = "all";
     var sel = document.getElementById("project-select");
     if (sel) sel.value = "__all__";
-    App.navigate("stats");
-    App.setStatus("Сводка по всем проектам: " + list.length);
+
+    var dash = await App.api("get_all_projects_dashboard");
+    if (!dash || dash.error) {
+      var msg = (dash && dash.error) ? dash.error : "Нет ответа get_all_projects_dashboard";
+      App.setStatus("Ошибка: " + msg);
+      alert("Не удалось загрузить сводку: " + msg);
+      return;
+    }
+    var setT = function (id, val) {
+      var e = document.getElementById(id);
+      if (e) e.textContent = val != null ? val : "—";
+    };
+    setT("kpi-channels", dash.channels);
+    setT("kpi-views", dash.views);
+    setT("kpi-subs", dash.subs);
+    setT("kpi-accounts", dash.accounts);
+    var pn = document.getElementById("home-project-name");
+    if (pn) pn.textContent = "· Все проекты (" + (dash.projects_count || 0) + ")";
+    var hp = document.getElementById("home-proxy");
+    if (hp) hp.innerHTML = dash.proxy_html || "<span class='empty'>Нет данных</span>";
+
+    var data = await App.api("get_all_projects_stats");
+    if (data && !data.error) {
+      App.renderStats(data.stats || []);
+      var log = document.getElementById("stats-log");
+      if (log) {
+        log.textContent =
+          "Все проекты: " +
+          (data.stats || []).length +
+          " каналов из " +
+          (data.projects_count || "?") +
+          " проектов.\n";
+      }
+    }
+
+    App.navigate("home");
+    App.setStatus(
+      "Все проекты: " +
+        (dash.channels || 0) +
+        " каналов · " +
+        (dash.projects_count || 0) +
+        " проектов"
+    );
   },
 
   async reloadAll() {
@@ -188,8 +219,13 @@ const App = {
   },
 
   async refreshHome() {
-    const data = await App.api("get_dashboard");
-    if (!data) {
+    var data;
+    if (App.viewMode === "all") {
+      data = await App.api("get_all_projects_dashboard");
+    } else {
+      data = await App.api("get_dashboard");
+    }
+    if (!data || data.error) {
       var hp = document.getElementById("home-proxy");
       if (hp) hp.textContent = "Нет связи с API. Перезапустите python run_web.py";
       return;
@@ -201,6 +237,14 @@ const App = {
     setT("kpi-accounts", data.accounts);
     var hp = document.getElementById("home-proxy");
     if (hp) hp.innerHTML = data.proxy_html || "<span class='empty'>Нет данных</span>";
+    var pn = document.getElementById("home-project-name");
+    if (pn) {
+      if (App.viewMode === "all") {
+        pn.textContent = "· Все проекты (" + (data.projects_count || 0) + ")";
+      } else if (data.project_name) {
+        pn.textContent = "· " + data.project_name;
+      }
+    }
   },
 
   async toggleTheme() {
