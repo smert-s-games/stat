@@ -3,6 +3,9 @@ const App = {
   parsing: false,
   viewMode: "project",
   _es: null,
+  _channelsCache: [],
+  _accountsCache: [],
+  UI_VER: "20260819o",
 
   async api(method) {
     var args = Array.prototype.slice.call(arguments, 1);
@@ -55,10 +58,11 @@ const App = {
 
   setStatus: function (t) {
     var el = document.getElementById("status-text");
-    if (el) el.textContent = "UI 20260819m · " + t;
+    if (el) el.textContent = "UI " + App.UI_VER + " \u00b7 " + t;
   },
 
   navigate: function (page) {
+    if (page === "settings") page = "home";
     document.querySelectorAll(".page").forEach(function (p) { p.classList.remove("active"); });
     document.querySelectorAll(".nav-item").forEach(function (n) { n.classList.remove("active"); });
     var section = document.getElementById("page-" + page);
@@ -67,52 +71,16 @@ const App = {
     if (nav) nav.classList.add("active");
     if (page === "expenses") App.loadExpenses();
     if (page === "proxy" && App.loadProxies) App.loadProxies();
-    if (page === "settings" && App.renderThemePills) App.renderThemePills();
+    if (page === "video") App.loadVideoScripts();
+    if (page === "accounts") App.refreshAccounts();
+    if (page === "stats") App.loadCachedStats();
   },
 
   init: async function () {
     App.setStatus("Старт…");
     try {
       App.connectEvents();
-      document.querySelectorAll(".nav-item").forEach(function (btn) {
-        btn.addEventListener("click", function () {
-          App.navigate(btn.getAttribute("data-page"));
-        });
-      });
-      var el;
-      el = document.getElementById("btn-theme");
-      if (el) el.onclick = function () { App.toggleTheme(); };
-      el = document.getElementById("btn-new-project");
-      if (el) el.onclick = function () { App.newProject(); };
-      el = document.getElementById("project-select");
-      if (el) el.onchange = function () { App.switchProject(el.value); };
-      el = document.getElementById("stats-sort");
-      if (el) el.onchange = function () { App.applyStatsSort(el.value); };
-      el = document.getElementById("accounts-sort");
-      if (el) el.onchange = function () { App.applyAccountsSort(el.value); };
-      el = document.getElementById("btn-ch-select-all");
-      if (el) el.onclick = function () { if (App.selectAllChannels) App.selectAllChannels(true); };
-      el = document.getElementById("btn-ch-select-none");
-      if (el) el.onclick = function () { if (App.selectAllChannels) App.selectAllChannels(false); };
-      el = document.getElementById("btn-ch-delete");
-      if (el) el.onclick = function () { if (App.deleteSelectedChannels) App.deleteSelectedChannels(); };
-      el = document.getElementById("btn-ch-import");
-      if (el) el.onclick = function () { if (App.importChannels) App.importChannels(); };
-      el = document.getElementById("ch-check-all");
-      if (el) el.onchange = function () { if (App.selectAllChannels) App.selectAllChannels(!!el.checked); };
-      el = document.getElementById("channels-search");
-      if (el) el.oninput = function () { if (App.filterChannels) App.filterChannels(); };
-      el = document.getElementById("btn-acc-select-all");
-      if (el) el.onclick = function () { if (App.selectAllAccounts) App.selectAllAccounts(true); };
-      el = document.getElementById("btn-acc-select-none");
-      if (el) el.onclick = function () { if (App.selectAllAccounts) App.selectAllAccounts(false); };
-      el = document.getElementById("btn-acc-delete");
-      if (el) el.onclick = function () { if (App.deleteSelectedAccounts) App.deleteSelectedAccounts(); };
-      el = document.getElementById("acc-check-all");
-      if (el) el.onchange = function () { if (App.selectAllAccounts) App.selectAllAccounts(!!el.checked); };
-      el = document.getElementById("accounts-search");
-      if (el) el.oninput = function () { if (App.filterAccounts) App.filterAccounts(); };
-
+      App.bindAll();
       await App.loadProjects();
       await App.loadConfig();
       await App.loadCachedStats();
@@ -120,13 +88,74 @@ const App = {
       await App.refreshAccounts();
       await App.loadVideoScripts();
       await App.loadExpenses();
+      if (App.loadProxies) await App.loadProxies();
       App.setStatus("Готово");
     } catch (e) {
       console.error("init error", e);
       App.setStatus("Ошибка: " + e);
-      var hp = document.getElementById("home-proxy");
-      if (hp) hp.textContent = "Ошибка: " + e;
     }
+  },
+
+  bindAll: function () {
+    document.querySelectorAll(".nav-item").forEach(function (btn) {
+      btn.onclick = function () {
+        App.navigate(btn.getAttribute("data-page"));
+      };
+    });
+    function on(id, fn) {
+      var el = document.getElementById(id);
+      if (el) el.onclick = fn;
+    }
+    function onChange(id, fn) {
+      var el = document.getElementById(id);
+      if (el) el.onchange = fn;
+    }
+    function onInput(id, fn) {
+      var el = document.getElementById(id);
+      if (el) el.oninput = fn;
+    }
+    on("btn-theme", function () { App.toggleTheme(); });
+    on("btn-new-project", function () { App.newProject(); });
+    onChange("project-select", function () {
+      App.switchProject(document.getElementById("project-select").value);
+    });
+    onChange("stats-sort", function () {
+      App.applyStatsSort(document.getElementById("stats-sort").value);
+    });
+    onChange("accounts-sort", function () {
+      App.applyAccountsSort(document.getElementById("accounts-sort").value);
+    });
+    on("btn-ch-import", function () { App.importChannels(); });
+    on("stats-parse-btn", function () { App.startParse(); });
+    on("btn-pick-links", function () { App.pickLinksFile(); });
+    on("btn-ch-select-all", function () { App.selectAllChannels(true); });
+    on("btn-ch-select-none", function () { App.selectAllChannels(false); });
+    on("btn-ch-delete", function () { App.deleteSelectedChannels(); });
+    onChange("ch-check-all", function () {
+      App.selectAllChannels(!!document.getElementById("ch-check-all").checked);
+    });
+    onInput("channels-search", function () { App.filterChannels(); });
+    on("btn-acc-select-all", function () { App.selectAllAccounts(true); });
+    on("btn-acc-select-none", function () { App.selectAllAccounts(false); });
+    on("btn-acc-delete", function () { App.deleteSelectedAccounts(); });
+    onChange("acc-check-all", function () {
+      App.selectAllAccounts(!!document.getElementById("acc-check-all").checked);
+    });
+    onInput("accounts-search", function () { App.filterAccounts(); });
+    on("btn-add-folder", function () { App.addAccountsFolder(); });
+    on("btn-refresh-accounts", function () { App.refreshAccounts(); });
+    on("btn-add-script", function () { App.addVideoScript(); });
+    on("video-run-btn", function () { App.runVideoScript(); });
+    on("video-stop-btn", function () { App.stopVideoScript(); });
+    on("btn-add-expense", function () { App.addExpense(); });
+    on("btn-add-proxy", function () {
+      if (App.addProxyFromForm) App.addProxyFromForm();
+    });
+    on("btn-save-tg", function () { App.saveTelegram(); });
+    on("tg-start", function () { App.startBot(); });
+    on("tg-stop", function () { App.stopBot(); });
+    on("btn-save-proxy-dates", function () { App.saveProxy(); });
+    on("btn-save-server-dates", function () { App.saveServer(); });
   },
 
   loadProjects: async function () {
@@ -135,9 +164,11 @@ const App = {
     if (!data || !sel) return;
     var opts = '<option value="__all__">Все проекты</option>';
     opts += (data.projects || []).map(function (p) {
-      return '<option value="' + esc(p.id) + '"' + (p.id === data.active_id ? " selected" : "") + ">" + esc(p.name) + "</option>";
+      return '<option value="' + esc(p.id) + '"' +
+        (p.id === data.active_id ? " selected" : "") + ">" + esc(p.name) + "</option>";
     }).join("");
     sel.innerHTML = opts;
+    sel.onchange = function () { App.switchProject(sel.value); };
   },
 
   newProject: async function () {
@@ -155,8 +186,18 @@ const App = {
       return;
     }
     App.viewMode = "project";
-    await App.api("switch_project", pid);
-    await App.reloadAll();
+    App.setStatus("Смена проекта…");
+    App.renderStats([]);
+    var res = await App.api("switch_project", pid);
+    if (res && res.error) { alert(res.error); return; }
+    await App.loadCachedStats();
+    await App.refreshHome();
+    await App.refreshAccounts();
+    await App.loadExpenses();
+    if (App.loadProxies) await App.loadProxies();
+    var sel = document.getElementById("project-select");
+    if (sel) sel.value = pid;
+    App.setStatus("Проект: " + ((res && res.project_name) || pid));
   },
 
   showAllProjectsStats: async function () {
@@ -218,7 +259,7 @@ const App = {
     var data = await App.api("get_dashboard");
     if (!data) {
       var hp = document.getElementById("home-proxy");
-      if (hp) hp.textContent = "Нет ответа API. Проверьте, что сервер запущен.";
+      if (hp) hp.textContent = "Нет ответа API.";
       return;
     }
     var setT = function (id, val) {
@@ -237,7 +278,11 @@ const App = {
 
   toggleTheme: async function () {
     var res = await App.api("toggle_theme");
-    if (res && res.theme) document.documentElement.setAttribute("data-theme", res.theme);
+    if (res && res.theme) {
+      document.documentElement.setAttribute("data-theme", res.theme);
+      var st = document.getElementById("status-theme");
+      if (st) st.textContent = "Тема: " + res.theme;
+    }
   },
 
   startParse: async function () {
@@ -245,6 +290,7 @@ const App = {
     if (links) await App.api("set_links_file", links);
     var res = await App.api("start_parse");
     if (res && res.error) alert(res.error);
+    else App.setStatus("Парсинг запущен");
   },
 
   onParseProgress: function (msg) {
@@ -263,29 +309,127 @@ const App = {
 
   renderStats: function (results) {
     App._channelsCache = Array.isArray(results) ? results.slice() : [];
-    if (App._paintChannels) {
-      App._paintChannels(App._channelsCache);
-      return;
-    }
+    App._paintChannelsTable(App._channelsCache);
+  },
+
+  filterChannels: function () {
+    App._paintChannelsTable(App._channelsCache || []);
+  },
+
+  _paintChannelsTable: function (results) {
     var tbody = document.getElementById("stats-tbody");
     if (!tbody) return;
-    if (!results || !results.length) {
-      tbody.innerHTML = '<tr><td colspan="9" class="empty">Нет данных</td></tr>';
+    var qEl = document.getElementById("channels-search");
+    var q = (qEl && qEl.value ? qEl.value : "").trim().toLowerCase();
+    var list = results || [];
+    if (q) {
+      list = list.filter(function (r) {
+        return String(r.channel_name || "").toLowerCase().indexOf(q) >= 0 ||
+          String(r.url || "").toLowerCase().indexOf(q) >= 0 ||
+          String(r.email || "").toLowerCase().indexOf(q) >= 0;
+      });
+    }
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="9" class="empty">' +
+        (q ? "Ничего не найдено" : "Нет данных") + "</td></tr>";
       return;
     }
-    tbody.innerHTML = results.map(function (r) {
-      return "<tr><td></td><td>" + esc(r.channel_name || "") + "</td><td>" + esc(r.subscribers || "0") +
-        "</td><td>" + esc(r.total_views || "0") + "</td><td>" + esc(r.videos_count || "0") +
-        "</td><td>" + esc(r.url || "") + "</td><td>" + esc(r.email || "—") + "</td><td></td><td></td></tr>";
+    tbody.innerHTML = list.map(function (r) {
+      var name = String(r.channel_name || "");
+      var err = r.error ? String(r.error) : "";
+      var low = (err + " " + name).toLowerCase();
+      var isBad = !!err || low.indexOf("404") >= 0 || name.trim().toLowerCase() === "youtube";
+      var url = r.url || "";
+      var cb = '<input type="checkbox" class="ch-check" data-url="' + esc(url) + '" />';
+      if (isBad) {
+        var label = err || (name.trim().toLowerCase() === "youtube" ? "Неактивный" : "404");
+        return '<tr class="row-error channel-row"><td>' + cb + '</td><td>' + esc(name || url) +
+          '</td><td>—</td><td>—</td><td>—</td><td>' + esc(url) + '</td><td>' + esc(r.email || "—") +
+          '</td><td><span class="badge badge-err">❌ ' + esc(label) + '</span></td>' +
+          '<td><button type="button" class="btn btn-ghost btn-sm btn-del-ch" data-url="' + esc(url) + '">✕</button></td></tr>';
+      }
+      var views = r.total_views != null && r.total_views !== "" ? r.total_views : "0";
+      var vids = r.videos_count != null && r.videos_count !== "" ? r.videos_count : "0";
+      var subs = r.subscribers != null && r.subscribers !== "" ? r.subscribers : "0";
+      return '<tr class="channel-row"><td>' + cb + '</td><td>' + esc(name) +
+        '</td><td>' + esc(subs) + '</td><td>' + esc(views) + '</td><td>' + esc(vids) +
+        '</td><td><a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url) + '</a></td><td>' +
+        esc(r.email || "—") + '</td><td><span class="badge badge-ok">✅</span></td>' +
+        '<td><button type="button" class="btn btn-ghost btn-sm btn-del-ch" data-url="' + esc(url) + '">✕</button></td></tr>';
     }).join("");
+
+    tbody.querySelectorAll(".btn-del-ch").forEach(function (btn) {
+      btn.onclick = function (e) {
+        e.stopPropagation();
+        App.deleteChannels([btn.getAttribute("data-url")]);
+      };
+    });
+    tbody.querySelectorAll(".ch-check").forEach(function (cb) {
+      cb.onclick = function (e) { e.stopPropagation(); };
+      cb.onchange = function () {
+        var tr = cb.closest("tr");
+        if (tr) tr.classList.toggle("row-selected", cb.checked);
+      };
+    });
+    tbody.querySelectorAll("tr.channel-row").forEach(function (tr) {
+      tr.onclick = function (e) {
+        if (e.target.tagName === "A" || e.target.tagName === "BUTTON" || e.target.tagName === "INPUT") return;
+        var cb = tr.querySelector(".ch-check");
+        if (!cb) return;
+        cb.checked = !cb.checked;
+        tr.classList.toggle("row-selected", cb.checked);
+      };
+    });
+  },
+
+  selectAllChannels: function (on) {
+    var c = !!on;
+    document.querySelectorAll(".ch-check").forEach(function (x) {
+      x.checked = c;
+      var tr = x.closest("tr");
+      if (tr) tr.classList.toggle("row-selected", c);
+    });
+    var all = document.getElementById("ch-check-all");
+    if (all) all.checked = c;
+  },
+
+  deleteSelectedChannels: async function () {
+    var urls = [];
+    document.querySelectorAll(".ch-check:checked").forEach(function (x) {
+      urls.push(x.getAttribute("data-url"));
+    });
+    if (!urls.length) { alert("Выберите каналы"); return; }
+    if (!confirm("Удалить выбранные (" + urls.length + ")?")) return;
+    await App.deleteChannels(urls);
+  },
+
+  deleteChannels: async function (urls) {
+    var res = await App.api("delete_channels", null, urls || []);
+    if (res && res.error) { alert(res.error); return; }
+    App.renderStats((res && res.stats) || []);
+    App.refreshHome();
+  },
+
+  importChannels: async function () {
+    var ta = document.getElementById("channels-import");
+    var text = ta ? ta.value : "";
+    if (!text || !text.trim()) { alert("Вставьте список каналов"); return; }
+    var fmt = "url";
+    document.querySelectorAll('input[name="ch-format"]').forEach(function (r) {
+      if (r.checked) fmt = r.value;
+    });
+    var res = await App.api("import_channels", text, fmt);
+    if (!res || res.error) { alert((res && res.error) || "Ошибка"); return; }
+    if (ta) ta.value = "";
+    alert("Добавлено: " + (res.added || 0) + ", всего: " + (res.total || 0));
+    await App.loadCachedStats();
+    App.refreshHome();
   },
 
   applyStatsSort: async function (mode) {
     var results = await App.api("sort_stats_results", mode);
     if (results) App.renderStats(results);
   },
-
-  openUrl: function (url) { App.api("open_url", url); return false; },
 
   pickLinksFile: async function () {
     var p = prompt("Путь к файлу ссылок:");
@@ -295,34 +439,133 @@ const App = {
     await App.api("set_links_file", p);
   },
 
-  exportStats: async function () { await App.api("export_stats"); },
-
   refreshAccounts: async function () {
     var data = await App.api("refresh_accounts");
     if (!data) return;
     if (data.error) { alert(data.error); return; }
+    var foldersEl = document.getElementById("accounts-folders");
+    if (foldersEl) {
+      if (data.folders && data.folders.length) {
+        foldersEl.innerHTML = data.folders.map(function (f, i) {
+          return '<div class="script-item"><div class="script-path">' + esc(f) +
+            '</div><button type="button" class="btn btn-ghost btn-sm" data-rm-folder="' + i + '">➖</button></div>';
+        }).join("");
+        foldersEl.querySelectorAll("[data-rm-folder]").forEach(function (btn) {
+          btn.onclick = function () {
+            var idx = parseInt(btn.getAttribute("data-rm-folder"), 10);
+            App.removeFolder(data.folders[idx]);
+          };
+        });
+      } else {
+        foldersEl.innerHTML = '<div class="empty">Нет папок</div>';
+      }
+    }
     App._accountsCache = data.accounts || [];
-    if (App._paintAccounts) App._paintAccounts(App._accountsCache);
-    App.refreshHome();
+    App._paintAccountsTable(App._accountsCache);
+  },
+
+  filterAccounts: function () {
+    App._paintAccountsTable(App._accountsCache || []);
+  },
+
+  _paintAccountsTable: function (accounts) {
+    var tbody = document.getElementById("accounts-tbody");
+    if (!tbody) return;
+    var qEl = document.getElementById("accounts-search");
+    var q = (qEl && qEl.value ? qEl.value : "").trim().toLowerCase();
+    var list = accounts || [];
+    if (q) {
+      list = list.filter(function (a) {
+        return String(a.name || "").toLowerCase().indexOf(q) >= 0 ||
+          String(a.folder_short || a.folder || "").toLowerCase().indexOf(q) >= 0;
+      });
+    }
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">' +
+        (q ? "Ничего не найдено" : "Нет данных") + "</td></tr>";
+      return;
+    }
+    tbody.innerHTML = list.map(function (a) {
+      var key = a.path || a.folder || a.name || "";
+      return '<tr class="account-row"><td><input type="checkbox" class="acc-check" data-name="' +
+        esc(a.name || "") + '" data-path="' + esc(key) + '" /></td><td>' + esc(a.name) +
+        '</td><td>' + esc(a.folder_short || a.folder || "") + '</td><td>' + esc(a.materials_count) +
+        '</td><td>' + esc(a.size) + '</td><td>' + esc(a.modified_date) +
+        '</td><td>' + esc(a.quality_score) +
+        '</td><td><button type="button" class="btn btn-ghost btn-sm btn-del-acc" data-name="' +
+        esc(a.name || "") + '" data-path="' + esc(key) + '">✕</button></td></tr>';
+    }).join("");
+    tbody.querySelectorAll(".btn-del-acc").forEach(function (btn) {
+      btn.onclick = function (e) {
+        e.stopPropagation();
+        App.deleteAccounts([btn.getAttribute("data-name")], [btn.getAttribute("data-path")]);
+      };
+    });
+    tbody.querySelectorAll(".acc-check").forEach(function (cb) {
+      cb.onclick = function (e) { e.stopPropagation(); };
+      cb.onchange = function () {
+        var tr = cb.closest("tr");
+        if (tr) tr.classList.toggle("row-selected", cb.checked);
+      };
+    });
+    tbody.querySelectorAll("tr.account-row").forEach(function (tr) {
+      tr.onclick = function (e) {
+        if (e.target.tagName === "BUTTON" || e.target.tagName === "INPUT") return;
+        var cb = tr.querySelector(".acc-check");
+        if (!cb) return;
+        cb.checked = !cb.checked;
+        tr.classList.toggle("row-selected", cb.checked);
+      };
+    });
+  },
+
+  selectAllAccounts: function (on) {
+    var c = !!on;
+    document.querySelectorAll(".acc-check").forEach(function (x) {
+      x.checked = c;
+      var tr = x.closest("tr");
+      if (tr) tr.classList.toggle("row-selected", c);
+    });
+    var all = document.getElementById("acc-check-all");
+    if (all) all.checked = c;
+  },
+
+  deleteSelectedAccounts: async function () {
+    var names = [], paths = [];
+    document.querySelectorAll(".acc-check:checked").forEach(function (x) {
+      names.push(x.getAttribute("data-name"));
+      paths.push(x.getAttribute("data-path"));
+    });
+    if (!names.length) { alert("Выберите аккаунты"); return; }
+    if (!confirm("Удалить выбранные (" + names.length + ")?")) return;
+    await App.deleteAccounts(names, paths);
+  },
+
+  deleteAccounts: async function (names, paths) {
+    var res = await App.api("delete_accounts", names || [], paths || []);
+    if (res && res.error) { alert(res.error); return; }
+    App._accountsCache = (res && res.accounts) || [];
+    App._paintAccountsTable(App._accountsCache);
   },
 
   applyAccountsSort: async function (mode) {
     var accounts = await App.api("sort_accounts_results", mode);
     if (!accounts) return;
     App._accountsCache = accounts;
-    if (App._paintAccounts) App._paintAccounts(accounts);
+    App._paintAccountsTable(accounts);
   },
 
   addAccountsFolder: async function () {
-    var path = prompt("Путь к папке аккаунтов:");
+    var path = prompt("Полный путь к папке с аккаунтами:");
     if (!path || !path.trim()) return;
-    await App.api("add_accounts_folder", path.trim());
-    App.refreshAccounts();
+    var res = await App.api("add_accounts_folder", path.trim());
+    if (res && res.error) alert(res.error);
+    await App.refreshAccounts();
   },
 
   removeFolder: async function (path) {
     await App.api("remove_accounts_folder", path);
-    App.refreshAccounts();
+    await App.refreshAccounts();
   },
 
   loadVideoScripts: async function () {
@@ -347,10 +590,11 @@ const App = {
   },
 
   addVideoScript: async function () {
-    var path = prompt("Путь к .py:");
+    var path = prompt("Полный путь к .py скрипту:");
     if (!path || !path.trim()) return;
-    await App.api("add_video_script", path.trim());
-    App.loadVideoScripts();
+    var res = await App.api("add_video_script", path.trim());
+    if (res && res.error) alert(res.error);
+    await App.loadVideoScripts();
   },
 
   runVideoScript: async function () {
@@ -389,6 +633,7 @@ const App = {
     await App.api("save_telegram",
       (document.getElementById("tg-token") || {}).value || "",
       (document.getElementById("tg-chat") || {}).value || "");
+    App.setStatus("Telegram сохранён");
   },
 
   loadExpenses: async function () {
