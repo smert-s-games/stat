@@ -7,4 +7,10 @@ try:
 except Exception as e:
     print("runtime_patches:", e)
 
+try:
+    from modules.import_fix import apply_import_fix
+    apply_import_fix(WebAPI)
+except Exception as e:
+    print("import_fix:", e)
+
 __all__ = ["WebAPI", "BASE", "sort_stats", "sort_accounts"]
