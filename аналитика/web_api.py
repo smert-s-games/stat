@@ -26,4 +26,10 @@ try:
 except Exception as e:
     print("parser_fix:", e)
 
+try:
+    from modules.display_fix import apply_display_fix
+    apply_display_fix(WebAPI)
+except Exception as e:
+    print("display_fix:", e)
+
 __all__ = ["WebAPI", "BASE", "sort_stats", "sort_accounts"]
