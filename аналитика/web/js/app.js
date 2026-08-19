@@ -55,7 +55,7 @@ const App = {
 
   setStatus: function (t) {
     var el = document.getElementById("status-text");
-    if (el) el.textContent = "UI 20260819i · " + t;
+    if (el) el.textContent = "UI 20260819m · " + t;
   },
 
   navigate: function (page) {
