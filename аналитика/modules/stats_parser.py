@@ -5,7 +5,6 @@
 import re
 import time
 import json
-from urllib.parse import urlparse
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -26,6 +25,9 @@ class StatsParser:
         "shorts", "videos", "home", "about", "community", "playlists",
         "channels", "live", "posts", "store", "search", "youtube",
         "subscriptions", "library", "history", "trending",
+        "поиск", "главная", "видео", "шортс", "сообщество", "трансляции",
+        "плейлисты", "каналы", "о канале", "подписки", "библиотека",
+        "история", "в тренде", "магазин", "неизвестно", "www.youtube.com",
     }
 
     def __init__(self):
@@ -36,6 +38,10 @@ class StatsParser:
         if not n or n == "неизвестно":
             return True
         if n in self.BAD_CHANNEL_NAMES:
+            return True
+        if n in ("поиск", "search", "menu", "меню", "login", "войти"):
+            return True
+        if len(n) <= 2:
             return True
         return False
 
@@ -79,14 +85,33 @@ class StatsParser:
                     line = line.strip()
                     if not line or line.startswith("#"):
                         continue
-                    # auto-split url:email
-                    m = re.match(r"^(https?://\S+?):([^\s/]+@[^\s/]+)$", line)
+                    url, email = "", ""
+                    m = re.match(r"^(https?://\S+?):([^\s]+@[^\s]+)$", line)
                     if m:
-                        links.append({"url": m.group(1), "email": m.group(2)})
-                    elif line.startswith("http"):
-                        links.append({"url": line, "email": ""})
+                        url, email = m.group(1).rstrip("/"), m.group(2).strip()
                     else:
-                        links.append(line)
+                        m2 = re.match(r"^(https?://\S+)[\s;|]+([^\s]+@[^\s]+)$", line)
+                        if m2:
+                            url, email = m2.group(1).rstrip("/"), m2.group(2).strip()
+                        elif line.startswith("http"):
+                            url = line.split()[0].rstrip("/")
+                        else:
+                            parts = re.split(r"[\s;|]+", line, maxsplit=1)
+                            url = parts[0].strip()
+                            if len(parts) > 1 and "@" in parts[1] and "." in parts[1]:
+                                email = parts[1].strip()
+                    if not url:
+                        continue
+                    if not url.startswith("http"):
+                        if url.startswith("www."):
+                            url = "https://" + url
+                        elif url.startswith("@"):
+                            url = "https://www.youtube.com/" + url
+                        elif "/" not in url and not url.startswith("UC"):
+                            url = "https://www.youtube.com/@" + url.lstrip("@")
+                        else:
+                            url = "https://www.youtube.com/" + url.lstrip("/")
+                    links.append({"url": url, "email": email})
         except Exception as e:
             print("read links:", e)
         return links
@@ -141,10 +166,21 @@ class StatsParser:
                 if isinstance(obj, dict):
                     for k, v in obj.items():
                         kl = str(k).lower()
-                        if kl in ("title", "channelname", "name") and isinstance(v, str) and len(v) > 1:
+                        if kl in ("channelname", "channelmetadata", "metaname", "ownertext") or kl.endswith("channelname"):
+                            cand = ""
+                            if isinstance(v, str):
+                                cand = v
+                            elif isinstance(v, dict):
+                                cand = v.get("simpleText") or v.get("content") or ""
+                                if not cand and isinstance(v.get("runs"), list):
+                                    cand = "".join(str(x.get("text", "")) for x in v["runs"] if isinstance(x, dict))
+                            cand = str(cand).replace(" - YouTube", "").strip()
+                            if cand and not self._is_bad_channel_name(cand):
+                                channel_data["channel_name"] = cand
+                        elif kl == "title" and isinstance(v, str) and len(v) > 2:
                             cand = v.replace(" - YouTube", "").strip()
                             if channel_data["channel_name"] == "Неизвестно" or self._is_bad_channel_name(channel_data["channel_name"]):
-                                if not self._is_bad_channel_name(cand):
+                                if not self._is_bad_channel_name(cand) and ((" " in cand) or len(cand) > 4):
                                     channel_data["channel_name"] = cand
                         if "subscriber" in kl and isinstance(v, (str, int, float)):
                             channel_data["subscribers"] = str(v)
@@ -157,9 +193,9 @@ class StatsParser:
                                 channel_data["total_views"] = str(v)
                         if "video" in kl and "count" in kl and isinstance(v, (str, int, float)):
                             channel_data["videos_count"] = str(v)
-                        if "email" in kl or "businessemail" in kl:
-                            if isinstance(v, str) and "@" in v:
-                                channel_data["email"] = v
+                        if "email" in kl or "businessemail" in kl or "mailto" in kl:
+                            if isinstance(v, str) and "@" in v and "." in v:
+                                channel_data["email"] = v.strip()
                         walk(v, depth + 1)
                 elif isinstance(obj, list):
                     for it in obj[:80]:
@@ -235,7 +271,6 @@ class StatsParser:
                     if not channel_data.get(k) or channel_data.get(k) in ("0", "Неизвестно") or (k == "channel_name" and self._is_bad_channel_name(channel_data.get(k))):
                         if dom.get(k) and not (k == "channel_name" and self._is_bad_channel_name(dom.get(k))):
                             channel_data[k] = dom[k]
-            # strong extract from page source
             try:
                 src_html = self.driver.page_source or ""
                 if self._is_bad_channel_name(channel_data.get("channel_name")):
@@ -270,6 +305,15 @@ class StatsParser:
                 um = re.search(r"youtube\.com/@([^/?&#]+)", url or "")
                 if um:
                     channel_data["channel_name"] = "@" + um.group(1)
+            if not channel_data.get("email"):
+                try:
+                    src_html = self.driver.page_source or ""
+                except Exception:
+                    src_html = ""
+                if src_html:
+                    em = re.search(r"mailto:([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})", src_html)
+                    if em:
+                        channel_data["email"] = em.group(1)
             channel_data["subscribers_num"] = self.parse_number(channel_data.get("subscribers"))
             channel_data["total_views_num"] = self.parse_number(channel_data.get("total_views"))
             channel_data["videos_count_num"] = self.parse_number(channel_data.get("videos_count"))
@@ -277,6 +321,8 @@ class StatsParser:
                 channel_data["subscribers"] = self.format_large_number(channel_data["subscribers_num"])
             if channel_data.get("total_views_num"):
                 channel_data["total_views"] = self.format_large_number(channel_data["total_views_num"])
+            if channel_data.get("videos_count_num"):
+                channel_data["videos_count"] = self.format_large_number(channel_data["videos_count_num"])
             return channel_data
         except TimeoutException:
             return {"url": url, "error": "Таймаут загрузки страницы"}
@@ -311,10 +357,10 @@ class StatsParser:
                         progress_callback(i, total, url)
                     except Exception:
                         pass
-                about_url = url
-                data = self.parse_channel_data(about_url)
-                if preset_email and not data.get("email"):
+                data = self.parse_channel_data(url)
+                if preset_email:
                     data["email"] = preset_email
+                data.setdefault("email", "")
                 results.append(data)
                 time.sleep(0.4)
         finally:
