@@ -1,4 +1,4 @@
-"""Runtime patches: multi-proxy, themes, 404, views, all-projects dashboard."""
+"""Runtime patches: multi-proxy, themes, 404, views, channels/accounts CRUD."""
 from __future__ import annotations
 
 import uuid
@@ -210,14 +210,12 @@ def apply_webapi_patches(WebAPI):
         return {"stats": all_stats, "count": len(all_stats), "projects_count": len(projects)}
 
     def get_all_projects_dashboard(self):
-        """KPI на главной для режима «Все проекты»."""
         from modules.web_backend import _is_error_result
         try:
             self.store._index = self.store._load_index()
             projects = list(self.store._index.get("projects") or [])
         except Exception as e:
             return {"error": str(e)}
-
         channels = views = subs = accounts = 0
         fmt = self.stats_parser.format_large_number
         lines = ["<p><strong>📁 Режим:</strong> Все проекты</p>"]
@@ -255,7 +253,6 @@ def apply_webapi_patches(WebAPI):
                 "<p><strong>%s</strong>: %d каналов · аккаунтов %d · расходы %.2f</p>"
                 % (name, ok_ch, acc_n, exp)
             )
-
         return {
             "channels": channels or "—",
             "views": fmt(views) if channels else "—",
@@ -302,6 +299,153 @@ def apply_webapi_patches(WebAPI):
         results = _normalize_stats_results(results)
         self.current_stats = results
         return results
+
+    def _channels_list(self):
+        p = self._proj() or {}
+        ch = list(p.get("channels") or [])
+        if not ch:
+            for r in p.get("last_stats") or []:
+                if not isinstance(r, dict):
+                    continue
+                url = (r.get("url") or "").strip()
+                if not url:
+                    continue
+                ch.append({
+                    "id": str(uuid.uuid4())[:8],
+                    "url": url,
+                    "email": (r.get("email") or "").strip(),
+                    "name": (r.get("channel_name") or "").strip(),
+                })
+            if ch:
+                try:
+                    self.store.update_active(channels=ch)
+                except Exception:
+                    pass
+        return ch
+
+    def get_channels(self):
+        return {"channels": self._channels_list()}
+
+    def import_channels(self, text: str, fmt: str = "url"):
+        import re as _re
+        import os
+        text = text or ""
+        fmt = (fmt or "url").strip().lower()
+        existing = self._channels_list()
+        by_url = {(c.get("url") or "").rstrip("/").lower(): c for c in existing}
+        added = 0
+        for line in text.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            url, email = line, ""
+            if fmt in ("url_email", "channel:email", "url:email"):
+                m = _re.match(r"^(https?://\S+):([^\s/]+@[^\s/]+\.[^\s/]+)$", line)
+                if m:
+                    url, email = m.group(1), m.group(2)
+                else:
+                    parts = line.split()
+                    if len(parts) >= 2 and "@" in parts[-1] and "." in parts[-1]:
+                        url, email = parts[0], parts[-1]
+                    elif "://" not in line and ":" in line:
+                        a, b = line.split(":", 1)
+                        if "@" in b:
+                            url, email = a.strip(), b.strip()
+            url = url.strip().rstrip("/")
+            if url.startswith("."):
+                url = url[1:]
+            if not url:
+                continue
+            key = url.lower()
+            if key in by_url:
+                if email:
+                    by_url[key]["email"] = email
+                continue
+            item = {"id": str(uuid.uuid4())[:8], "url": url, "email": email, "name": ""}
+            existing.append(item)
+            by_url[key] = item
+            added += 1
+        self.store.update_active(channels=existing)
+        self._sync_links_file(existing)
+        stats = list((self._proj() or {}).get("last_stats") or [])
+        email_map = {(c.get("url") or "").rstrip("/").lower(): c.get("email") or "" for c in existing}
+        changed = False
+        for r in stats:
+            if not isinstance(r, dict):
+                continue
+            u = (r.get("url") or "").rstrip("/").lower()
+            if u in email_map and email_map[u] and not r.get("email"):
+                r["email"] = email_map[u]
+                changed = True
+        if changed:
+            self.store.update_active(last_stats=stats)
+            self.current_stats = stats
+        return {"ok": True, "added": added, "total": len(existing), "channels": existing}
+
+    def _sync_links_file(self, channels):
+        import os
+        from modules.web_backend import BASE
+        p = self._proj() or {}
+        path = p.get("links_file") or "links.txt"
+        if not os.path.isabs(path):
+            path = str(BASE / path)
+        try:
+            parent = os.path.dirname(path)
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                for c in channels:
+                    u = (c.get("url") or "").strip()
+                    if u:
+                        f.write(u + "\n")
+        except Exception as e:
+            print("sync links:", e)
+
+    def delete_channels(self, ids=None, urls=None):
+        ids = set(ids or [])
+        urls = set((u or "").rstrip("/").lower() for u in (urls or []))
+        existing = self._channels_list()
+        kept = []
+        removed_urls = set()
+        for c in existing:
+            cid = c.get("id")
+            u = (c.get("url") or "").rstrip("/").lower()
+            if cid in ids or u in urls:
+                removed_urls.add(u)
+                continue
+            kept.append(c)
+        self.store.update_active(channels=kept)
+        self._sync_links_file(kept)
+        stats = list((self._proj() or {}).get("last_stats") or [])
+        stats2 = [r for r in stats if isinstance(r, dict) and (r.get("url") or "").rstrip("/").lower() not in removed_urls]
+        self.store.update_active(last_stats=stats2)
+        self.current_stats = stats2
+        return {"ok": True, "removed": len(existing) - len(kept), "channels": kept, "stats": stats2}
+
+    def delete_accounts(self, names=None, paths=None):
+        names = set((n or "").strip().lower() for n in (names or []))
+        paths = set((p or "").strip().lower() for p in (paths or []))
+        accounts = list(getattr(self, "current_accounts", None) or [])
+        if not accounts:
+            p = self._proj() or {}
+            accounts = list(p.get("last_accounts") or [])
+        kept = []
+        removed = 0
+        for a in accounts:
+            if not isinstance(a, dict):
+                continue
+            n = (a.get("name") or "").strip().lower()
+            path = (a.get("path") or a.get("folder") or "").strip().lower()
+            if n in names or path in paths:
+                removed += 1
+                continue
+            kept.append(a)
+        self.current_accounts = kept
+        try:
+            self.store.update_active(last_accounts=kept)
+        except Exception:
+            pass
+        return {"ok": True, "removed": removed, "accounts": kept}
 
     try:
         from modules.stats_parser import StatsParser
@@ -359,7 +503,6 @@ def apply_webapi_patches(WebAPI):
         from modules.stats_parser import StatsParser
         if not getattr(StatsParser, "_views_patched_v3", False):
             import re as _re
-
             _orig_pcd = StatsParser.parse_channel_data
 
             def _views_from_about_only(src: str, parse_number):
@@ -377,10 +520,6 @@ def apply_webapi_patches(WebAPI):
                             chunk,
                         ):
                             n = parse_number(vm.group(1) or vm.group(2) or "")
-                            if n > 0:
-                                cands.append(n)
-                        for vm in _re.finditer(r'"viewCount"\s*:\s*"?(\d+)"?', chunk):
-                            n = int(vm.group(1))
                             if n > 0:
                                 cands.append(n)
                 return max(cands) if cands else 0
@@ -403,9 +542,7 @@ def apply_webapi_patches(WebAPI):
                     data["total_views_num"] = about_n
                     data["total_views"] = self.format_large_number(about_n)
                 else:
-                    n = int(data.get("total_views_num") or 0) or self.parse_number(
-                        str(data.get("total_views") or "0")
-                    )
+                    n = int(data.get("total_views_num") or 0) or self.parse_number(str(data.get("total_views") or "0"))
                     if n > 0 and n < 20:
                         data["total_views"] = "0"
                         data["total_views_num"] = 0
@@ -439,6 +576,10 @@ def apply_webapi_patches(WebAPI):
     WebAPI.get_cached_stats = get_cached_stats
     WebAPI.get_all_projects_stats = get_all_projects_stats
     WebAPI.get_all_projects_dashboard = get_all_projects_dashboard
+    WebAPI.get_channels = get_channels
+    WebAPI.import_channels = import_channels
+    WebAPI.delete_channels = delete_channels
+    WebAPI.delete_accounts = delete_accounts
     WebAPI.get_config = get_config
     WebAPI.set_theme = set_theme
     WebAPI.toggle_theme = toggle_theme
