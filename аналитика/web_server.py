@@ -1,6 +1,6 @@
 """
 Локальный HTTP-сервер для веб-UI (без pywebview).
-Работает на Python 3.11–3.15, Windows/Linux.
+SSE + JSON-RPC.
 
 Запуск: python run_web.py
 """
@@ -8,51 +8,40 @@ from __future__ import annotations
 
 import json
 import mimetypes
-import queue
+import socket
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse, unquote
+from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 from web_api import WebAPI, BASE
 
 WEB_DIR = BASE / "web"
-HOST = "127.0.0.1"
 PORT = 8765
 
 
 class EventBus:
-    """Очередь событий для SSE (прогресс парсинга, логи)."""
-
     def __init__(self):
+        self._subs = []
         self._lock = threading.Lock()
-        self._subs: list[queue.Queue] = []
 
-    def subscribe(self) -> queue.Queue:
-        q: queue.Queue = queue.Queue(maxsize=500)
+    def subscribe(self):
+        q = []
         with self._lock:
             self._subs.append(q)
         return q
 
-    def unsubscribe(self, q: queue.Queue):
+    def unsubscribe(self, q):
         with self._lock:
             if q in self._subs:
                 self._subs.remove(q)
 
     def emit(self, event: str, data):
-        payload = {"event": event, "data": data}
+        msg = f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
         with self._lock:
-            dead = []
-            for q in self._subs:
-                try:
-                    q.put_nowait(payload)
-                except queue.Full:
-                    dead.append(q)
-            for q in dead:
-                try:
-                    self._subs.remove(q)
-                except ValueError:
-                    pass
+            for q in list(self._subs):
+                q.append(msg)
 
 
 events = EventBus()
@@ -98,21 +87,20 @@ def _set_links_file(path: str):
     if not path:
         return {"error": "пустой путь"}
     api.config["links_file"] = path
-    api._save_config()
+    try:
+        api.store.update_active(links_file=path)
+    except Exception:
+        pass
     return {"ok": True, "path": path}
 
 
-if not hasattr(api, "set_links_file"):
-    api.set_links_file = _set_links_file  # type: ignore
-
-
 class Handler(BaseHTTPRequestHandler):
-    server_version = "YTAnalytics/1.0"
-
     def log_message(self, fmt, *args):
-        if args and str(args[0]).startswith("GET /api/events"):
-            return
-        print("[%s] %s" % (self.log_date_time_string(), fmt % args))
+        # quieter logs; ConnectionAborted is common on Windows refresh
+        try:
+            super().log_message(fmt, *args)
+        except Exception:
+            pass
 
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -151,6 +139,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
         self._cors()
         self.end_headers()
         self.wfile.write(data)
@@ -195,6 +186,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
         self._cors()
         self.end_headers()
         self.wfile.write(data)
@@ -206,20 +198,18 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Connection", "keep-alive")
         self._cors()
         self.end_headers()
-
         q = events.subscribe()
         try:
-            self.wfile.write(b": connected\n\n")
+            self.wfile.write(b":ok\n\n")
             self.wfile.flush()
             while True:
-                try:
-                    item = q.get(timeout=15)
-                    line = f"event: {item['event']}\ndata: {json.dumps(item['data'], ensure_ascii=False)}\n\n"
-                    self.wfile.write(line.encode("utf-8"))
+                if q:
+                    msg = q.pop(0)
+                    self.wfile.write(msg.encode("utf-8"))
                     self.wfile.flush()
-                except queue.Empty:
-                    self.wfile.write(b": ping\n\n")
-                    self.wfile.flush()
+                else:
+                    import time
+                    time.sleep(0.15)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             pass
         finally:
@@ -227,26 +217,17 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def run_server(open_browser: bool = True, port: int = PORT):
-    if not WEB_DIR.is_dir():
-        raise SystemExit(f"Не найдена папка UI: {WEB_DIR}")
-
-    httpd = ThreadingHTTPServer((HOST, port), Handler)
-    url = f"http://{HOST}:{port}/"
-    print("=" * 50)
-    print("  YT Analytics — веб-интерфейс")
-    print(f"  Откройте в браузере: {url}")
-    print("  Остановка: Ctrl+C")
-    print("=" * 50)
-
+    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    url = f"http://127.0.0.1:{port}/"
+    print(f"YT Analytics web UI: {url}")
     if open_browser:
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()
-
     try:
-        httpd.serve_forever()
+        server.serve_forever()
     except KeyboardInterrupt:
-        print("\nСервер остановлен.")
+        print("\nstop")
     finally:
-        httpd.server_close()
+        server.server_close()
 
 
 if __name__ == "__main__":

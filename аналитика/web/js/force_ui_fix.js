@@ -1,4 +1,4 @@
-/* UI 20260819k */
+/* UI 20260819l */
 (function () {
   "use strict";
   function esc(s) {
@@ -148,7 +148,7 @@
 
     App.setStatus = function (t) {
       var el = document.getElementById("status-text");
-      if (el) el.textContent = "UI 20260819k · " + t;
+      if (el) el.textContent = "UI 20260819l · " + t;
     };
 
     [["btn-ch-select-all", function () { App.selectAllChannels(true); }],
@@ -166,7 +166,13 @@
     var sel = document.getElementById("project-select");
     if (sel) sel.onchange = function () { App.switchProject(sel.value); };
 
-    document.title = "YT Analytics · 20260819k";
+    document.title = "YT Analytics · 20260819l";
+    App.setStatus("Готово");
+    if (App._channelsCache && App._channelsCache.length) {
+      paintCh(App._channelsCache);
+    } else if (typeof App.loadCachedStats === "function") {
+      App.loadCachedStats();
+    }
     return true;
   }
 
