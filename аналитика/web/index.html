@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>YT Analytics</title>
-  <link rel="stylesheet" href="/css/styles.css?v=20260819h" />
+  <link rel="stylesheet" href="/css/styles.css?v=20260819i" />
 </head>
 <body>
   <div class="app">
@@ -51,7 +51,7 @@
               <label class="radio-label"><input type="radio" name="ch-format" value="url" checked /> Только канал (URL)</label>
               <label class="radio-label"><input type="radio" name="ch-format" value="url_email" /> Канал:почта</label>
             </div>
-            <textarea id="channels-import" rows="5" placeholder="По одному на строку&#10;https://www.youtube.com/@channel&#10;или&#10;https://www.youtube.com/@channel:mail@example.com" style="width:100%;font-family:monospace;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)"></textarea>
+            <textarea id="channels-import" rows="5" placeholder="По одному на строку" style="width:100%;font-family:monospace;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)"></textarea>
             <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
               <button type="button" class="btn btn-success btn-sm" id="btn-ch-import">Добавить</button>
               <button type="button" class="btn btn-primary btn-sm" id="stats-parse-btn" onclick="App.startParse()">Парсить</button>
@@ -59,8 +59,8 @@
               <select id="stats-sort" class="btn btn-ghost btn-sm">
                 <option value="default">Сортировка</option>
                 <option value="name">Имя</option>
-                <option value="subs_desc">Подписчики ↓</option>
-                <option value="views_desc">Просмотры ↓</option>
+                <option value="subs_desc">Подписчики</option>
+                <option value="views_desc">Просмотры</option>
               </select>
             </div>
             <div class="form-row" style="margin-top:8px"><label>Файл ссылок</label><input type="text" id="links-file" /></div>
@@ -68,7 +68,7 @@
           </div></div>
         <div class="card"><div class="card-header"><span class="title">Список каналов</span>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <input type="search" id="channels-search" placeholder="Поиск по названию…" style="min-width:180px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)" />
+            <input type="search" id="channels-search" placeholder="Поиск…" style="min-width:180px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)" />
             <button type="button" class="btn btn-ghost btn-sm" id="btn-ch-select-all">Выбрать все</button>
             <button type="button" class="btn btn-ghost btn-sm" id="btn-ch-select-none">Снять</button>
             <button type="button" class="btn btn-danger btn-sm" id="btn-ch-delete">Удалить выбранные</button>
@@ -84,9 +84,9 @@
         <div class="card"><div class="card-header"><span class="title">Папки</span>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <select id="accounts-sort" class="btn btn-ghost btn-sm" onchange="App.applyAccountsSort(this.value)">
-              <option value="materials_desc">Материалы ↓</option>
-              <option value="size_desc">Размер ↓</option>
-              <option value="quality_desc">Качество ↓</option>
+              <option value="materials_desc">Материалы</option>
+              <option value="size_desc">Размер</option>
+              <option value="quality_desc">Качество</option>
               <option value="name">Имя</option>
             </select>
             <button type="button" class="btn btn-success btn-sm" onclick="App.addAccountsFolder()">+ папка</button>
@@ -95,7 +95,7 @@
           <div class="card-body"><div id="accounts-folders" class="empty">Нет папок</div></div></div>
         <div class="card"><div class="card-header"><span class="title">Список</span>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <input type="search" id="accounts-search" placeholder="Поиск по названию…" style="min-width:180px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)" />
+            <input type="search" id="accounts-search" placeholder="Поиск…" style="min-width:180px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)" />
             <button type="button" class="btn btn-ghost btn-sm" id="btn-acc-select-all">Выбрать все</button>
             <button type="button" class="btn btn-ghost btn-sm" id="btn-acc-select-none">Снять</button>
             <button type="button" class="btn btn-danger btn-sm" id="btn-acc-delete">Удалить выбранные</button>
@@ -177,10 +177,8 @@
       <footer class="status-bar"><span id="status-theme">Тема: Светлая</span></footer>
     </div>
   </div>
-  <script src="/js/app.js?v=20260819h"></script>
-  <script src="/js/app_ext.js?v=20260819h"></script>
-  <script src="/js/app_mgmt.js?v=20260819h"></script>
-  <script src="/js/inline_mgmt.js?v=20260819h"></script>
-  <script src="/js/force_ui_fix.js?v=20260819h"></script>
+  <script src="/js/app.js?v=20260819i"></script>
+  <script src="/js/app_ext.js?v=20260819i"></script>
+  <script src="/js/force_ui_fix.js?v=20260819i"></script>
 </body>
 </html>
