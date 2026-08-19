@@ -1,4 +1,4 @@
-/* UI 20260819l */
+/* UI 20260819m */
 (function () {
   "use strict";
   function esc(s) {
@@ -70,7 +70,12 @@
   }
 
   function install() {
-    if (!window.App || typeof App.api !== "function") return false;
+    if (!window.App) return false;
+    App.setStatus = function (t) {
+      var el = document.getElementById("status-text");
+      if (el) el.textContent = "UI 20260819m \u00b7 " + t;
+    };
+    if (typeof App.api !== "function") return false;
 
     App.renderStats = function (results) {
       App._channelsCache = Array.isArray(results) ? results.slice() : [];
@@ -146,11 +151,6 @@
       App.setStatus("Проект: " + (res.project_name || pid));
     };
 
-    App.setStatus = function (t) {
-      var el = document.getElementById("status-text");
-      if (el) el.textContent = "UI 20260819l · " + t;
-    };
-
     [["btn-ch-select-all", function () { App.selectAllChannels(true); }],
      ["btn-ch-select-none", function () { App.selectAllChannels(false); }],
      ["btn-ch-delete", function () { App.deleteSelectedChannels(); }],
@@ -166,7 +166,7 @@
     var sel = document.getElementById("project-select");
     if (sel) sel.onchange = function () { App.switchProject(sel.value); };
 
-    document.title = "YT Analytics · 20260819l";
+    document.title = "YT Analytics \u00b7 20260819m";
     App.setStatus("Готово");
     if (App._channelsCache && App._channelsCache.length) {
       paintCh(App._channelsCache);
