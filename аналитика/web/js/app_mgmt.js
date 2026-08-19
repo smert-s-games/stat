@@ -13,7 +13,8 @@
   App._paintChannels = function (results) {
     var tbody = document.getElementById("stats-tbody");
     if (!tbody) return;
-    var q = ((document.getElementById("channels-search") || {}).value || "").trim().toLowerCase();
+    var qEl = document.getElementById("channels-search");
+    var q = (qEl && qEl.value ? qEl.value : "").trim().toLowerCase();
     var list = results || [];
     if (q) {
       list = list.filter(function (r) {
@@ -36,13 +37,14 @@
         var low = (err + " " + name).toLowerCase();
         var isBad = !!err || low.indexOf("404") >= 0 || name.trim().toLowerCase() === "youtube";
         var url = r.url || "";
+        var cb = '<input type="checkbox" class="ch-check" data-url="' + esc(url) + '" />';
         if (isBad) {
           var label =
             err || (name.trim().toLowerCase() === "youtube" ? "Неактивный канал" : "404 Not Found");
           return (
-            '<tr class="row-error"><td><input type="checkbox" class="ch-check" data-url="' +
-            esc(url) +
-            '" /></td><td>' +
+            '<tr class="row-error"><td>' +
+            cb +
+            "</td><td>" +
             esc(name || url) +
             "</td><td>—</td><td>—</td><td>—</td><td>" +
             esc(url) +
@@ -50,7 +52,7 @@
             esc(r.email || "—") +
             '</td><td><span class="badge badge-err">❌ ' +
             esc(label) +
-            '</span></td><td><button class="btn btn-ghost btn-sm btn-icon" data-del-ch="' +
+            '</span></td><td><button type="button" class="btn btn-ghost btn-sm btn-icon btn-del-ch" data-url="' +
             esc(url) +
             '">✕</button></td></tr>'
           );
@@ -58,9 +60,9 @@
         var views =
           r.total_views_num != null && r.total_views_num !== "" ? r.total_views : r.total_views || "0";
         return (
-          '<tr><td><input type="checkbox" class="ch-check" data-url="' +
-          esc(url) +
-          '" /></td><td>' +
+          "<tr><td>" +
+          cb +
+          "</td><td>" +
           esc(r.channel_name || "") +
           "</td><td>" +
           esc(r.subscribers || "0") +
@@ -68,33 +70,33 @@
           esc(views) +
           "</td><td>" +
           esc(r.videos_count || "0") +
-          '</td><td><a href="#" data-url="' +
+          '</td><td><a href="#" class="ch-link" data-url="' +
           esc(url) +
           '">' +
           esc(url) +
           "</a></td><td>" +
           esc(r.email || "—") +
-          '</td><td><span class="badge badge-ok">✅</span></td><td><button class="btn btn-ghost btn-sm btn-icon" data-del-ch="' +
+          '</td><td><span class="badge badge-ok">✅</span></td><td><button type="button" class="btn btn-ghost btn-sm btn-icon btn-del-ch" data-url="' +
           esc(url) +
           '">✕</button></td></tr>'
         );
       })
       .join("");
-    tbody.querySelectorAll("a[data-url]").forEach(function (a) {
-      a.onclick = function (e) {
+    tbody.querySelectorAll("a.ch-link").forEach(function (a) {
+      a.addEventListener("click", function (e) {
         e.preventDefault();
         App.openUrl(a.getAttribute("data-url"));
-      };
+      });
     });
-    tbody.querySelectorAll("[data-del-ch]").forEach(function (btn) {
-      btn.onclick = function () {
-        App.deleteChannels([btn.getAttribute("data-del-ch")]);
-      };
+    tbody.querySelectorAll(".btn-del-ch").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        App.deleteChannels([btn.getAttribute("data-url")]);
+      });
     });
   };
 
   App.filterChannels = function () {
-    App._paintChannels(App._channelsCache);
+    App._paintChannels(App._channelsCache || []);
   };
 
   App.selectAllChannels = function (on) {
@@ -120,7 +122,7 @@
   };
 
   App.deleteChannels = async function (urls) {
-    var res = await App.api("delete_channels", null, urls);
+    var res = await App.api("delete_channels", null, urls || []);
     if (res && res.error) {
       alert(res.error);
       return;
@@ -133,7 +135,7 @@
   App.importChannels = async function () {
     var ta = document.getElementById("channels-import");
     var text = ta ? ta.value : "";
-    if (!text.trim()) {
+    if (!text || !text.trim()) {
       alert("Вставьте список каналов");
       return;
     }
@@ -206,7 +208,8 @@
   App._paintAccounts = function (accounts) {
     var tbody = document.getElementById("accounts-tbody");
     if (!tbody) return;
-    var q = ((document.getElementById("accounts-search") || {}).value || "").trim().toLowerCase();
+    var qEl = document.getElementById("accounts-search");
+    var q = (qEl && qEl.value ? qEl.value : "").trim().toLowerCase();
     var list = accounts || [];
     if (q) {
       list = list.filter(function (a) {
@@ -241,23 +244,23 @@
           esc(a.modified_date) +
           "</td><td>" +
           esc(a.quality_score) +
-          '</td><td><button class="btn btn-ghost btn-sm btn-icon" data-del-acc="' +
+          '</td><td><button type="button" class="btn btn-ghost btn-sm btn-icon btn-del-acc" data-name="' +
           esc(a.name || "") +
-          '" data-del-path="' +
+          '" data-path="' +
           esc(key) +
           '">✕</button></td></tr>'
         );
       })
       .join("");
-    tbody.querySelectorAll("[data-del-acc]").forEach(function (btn) {
-      btn.onclick = function () {
-        App.deleteAccounts([btn.getAttribute("data-del-acc")], [btn.getAttribute("data-del-path")]);
-      };
+    tbody.querySelectorAll(".btn-del-acc").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        App.deleteAccounts([btn.getAttribute("data-name")], [btn.getAttribute("data-path")]);
+      });
     });
   };
 
   App.filterAccounts = function () {
-    App._paintAccounts(App._accountsCache);
+    App._paintAccounts(App._accountsCache || []);
   };
 
   App.selectAllAccounts = function (on) {
@@ -302,4 +305,42 @@
     App._accountsCache = accounts;
     App._paintAccounts(accounts);
   };
+
+  function forceMgmtBind() {
+    var b;
+    b = document.getElementById("btn-ch-select-all");
+    if (b) b.onclick = function () { App.selectAllChannels(true); };
+    b = document.getElementById("btn-ch-select-none");
+    if (b) b.onclick = function () { App.selectAllChannels(false); };
+    b = document.getElementById("btn-ch-delete");
+    if (b) b.onclick = function () { App.deleteSelectedChannels(); };
+    b = document.getElementById("btn-ch-import");
+    if (b) b.onclick = function () { App.importChannels(); };
+    b = document.getElementById("ch-check-all");
+    if (b) b.onchange = function () { App.selectAllChannels(!!b.checked); };
+    b = document.getElementById("channels-search");
+    if (b) b.oninput = function () { App.filterChannels(); };
+    b = document.getElementById("btn-acc-select-all");
+    if (b) b.onclick = function () { App.selectAllAccounts(true); };
+    b = document.getElementById("btn-acc-select-none");
+    if (b) b.onclick = function () { App.selectAllAccounts(false); };
+    b = document.getElementById("btn-acc-delete");
+    if (b) b.onclick = function () { App.deleteSelectedAccounts(); };
+    b = document.getElementById("acc-check-all");
+    if (b) b.onchange = function () { App.selectAllAccounts(!!b.checked); };
+    b = document.getElementById("accounts-search");
+    if (b) b.oninput = function () { App.filterAccounts(); };
+    if (App._channelsCache && App._channelsCache.length && App._paintChannels) {
+      App._paintChannels(App._channelsCache);
+    }
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      setTimeout(forceMgmtBind, 50);
+      setTimeout(forceMgmtBind, 500);
+    });
+  } else {
+    setTimeout(forceMgmtBind, 50);
+    setTimeout(forceMgmtBind, 500);
+  }
 })();
