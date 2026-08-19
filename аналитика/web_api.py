@@ -13,4 +13,17 @@ try:
 except Exception as e:
     print("import_fix:", e)
 
+try:
+    from modules.channels_fix import apply_channels_fix
+    apply_channels_fix(WebAPI)
+except Exception as e:
+    print("channels_fix:", e)
+
+try:
+    from modules.stats_parser import StatsParser
+    from modules.parser_fix import apply_parser_fix
+    apply_parser_fix(StatsParser)
+except Exception as e:
+    print("parser_fix:", e)
+
 __all__ = ["WebAPI", "BASE", "sort_stats", "sort_accounts"]
