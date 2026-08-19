@@ -62,7 +62,7 @@
               e(r.email || "—") +
               '</td><td><span class="badge badge-err">❌ ' +
               e(label) +
-              "</span></td><td><button type="button" class="btn btn-ghost btn-sm btn-del-ch" data-url="" +
+              '</span></td><td><button type="button" class="btn btn-ghost btn-sm btn-del-ch" data-url="' +
               e(url) +
               '">✕</button></td></tr>'
             );
@@ -149,52 +149,70 @@
         alert("Вставьте список каналов");
         return;
       }
-      var fmt = "url";
+      var fmt = "url_email";
       document.querySelectorAll('input[name="ch-format"]').forEach(function (r) {
         if (r.checked) fmt = r.value;
       });
-      if (fmt === "url" && /https?:\/\/.+:[^\s]+@/.test(text)) fmt = "url_email";
-      var res = await App.api("import_channels", text, fmt);
-      if (!res || res.error) {
-        alert((res && res.error) || "Ошибка");
-        return;
-      }
-      if (ta) ta.value = "";
-      var cached = await App.api("get_cached_stats");
-      if (Array.isArray(cached) && cached.length) App.renderStats(cached);
-      else if (res.channels) {
-        App.renderStats(
-          res.channels.map(function (c) {
-            return {
-              url: c.url,
-              channel_name: c.name || c.url,
-              email: c.email || "",
-              subscribers: "—",
-              total_views: "—",
-              videos_count: "—",
-            };
-          })
-        );
+      try {
+        var res = await App.api("import_channels", text, fmt);
+        if (!res || res.error) {
+          alert((res && res.error) || "Ошибка импорта");
+          return;
+        }
+        if (ta) ta.value = "";
+        var msg =
+          "Добавлено: " +
+          (res.added || 0) +
+          ", обновлено: " +
+          (res.updated || 0) +
+          ", всего: " +
+          (res.total || 0);
+        if (App.setStatus) App.setStatus(msg);
+        else alert(msg);
+        var cached = await App.api("get_cached_stats");
+        if (Array.isArray(cached) && cached.length) {
+          App.renderStats(cached);
+        } else if (res.channels && res.channels.length) {
+          App.renderStats(
+            res.channels.map(function (c) {
+              return {
+                url: c.url,
+                channel_name: c.name || c.url,
+                email: c.email || "",
+                subscribers: "—",
+                total_views: "—",
+                videos_count: "—",
+              };
+            })
+          );
+        }
+        if (App.refreshHome) App.refreshHome();
+      } catch (err) {
+        alert("Ошибка: " + err);
       }
     };
     function bind() {
       var b;
       b = document.getElementById("btn-ch-select-all");
-      if (b) b.onclick = function () {
-        App.selectAllChannels(true);
-      };
+      if (b)
+        b.onclick = function () {
+          App.selectAllChannels(true);
+        };
       b = document.getElementById("btn-ch-select-none");
-      if (b) b.onclick = function () {
-        App.selectAllChannels(false);
-      };
+      if (b)
+        b.onclick = function () {
+          App.selectAllChannels(false);
+        };
       b = document.getElementById("btn-ch-delete");
-      if (b) b.onclick = function () {
-        App.deleteSelectedChannels();
-      };
+      if (b)
+        b.onclick = function () {
+          App.deleteSelectedChannels();
+        };
       b = document.getElementById("btn-ch-import");
-      if (b) b.onclick = function () {
-        App.importChannels();
-      };
+      if (b)
+        b.onclick = function () {
+          App.importChannels();
+        };
       b = document.getElementById("ch-check-all");
       if (b)
         b.onchange = function () {
