@@ -1,4 +1,4 @@
-/* UI 20260819i */
+/* UI 20260819j — project switch + channel selection */
 (function () {
   "use strict";
   function esc(s) {
@@ -27,29 +27,49 @@
       tbody.innerHTML = '<tr><td colspan="9" class="empty">' + (q ? "Ничего не найдено" : "Нет данных") + "</td></tr>";
       return;
     }
-    tbody.innerHTML = list.map(function (r) {
+    tbody.innerHTML = list.map(function (r, idx) {
       var name = String(r.channel_name || "");
       var err = r.error ? String(r.error) : "";
       var low = (err + " " + name).toLowerCase();
       var isBad = !!err || low.indexOf("404") >= 0 || name.trim().toLowerCase() === "youtube";
       var url = r.url || "";
-      var cb = '<input type="checkbox" class="ch-check" data-url="' + esc(url) + '" />';
+      var cb = '<input type="checkbox" class="ch-check" data-url="' + esc(url) + '" data-idx="' + idx + '" />';
       if (isBad) {
         var label = err || (name.trim().toLowerCase() === "youtube" ? "Неактивный канал" : "404 Not Found");
-        return '<tr class="row-error"><td>' + cb + '</td><td>' + esc(name || url) +
+        return '<tr class="row-error channel-row" data-url="' + esc(url) + '"><td>' + cb + '</td><td>' + esc(name || url) +
           '</td><td>—</td><td>—</td><td>—</td><td>' + esc(url) + '</td><td>' + esc(r.email || "—") +
           '</td><td><span class="badge badge-err">❌ ' + esc(label) + '</span></td>' +
           '<td><button type="button" class="btn btn-ghost btn-sm btn-del-ch" data-url="' + esc(url) + '">✕</button></td></tr>';
       }
       var views = (r.total_views_num != null && r.total_views_num !== "") ? r.total_views : (r.total_views || "0");
-      return '<tr><td>' + cb + '</td><td>' + esc(r.channel_name || "") + '</td><td>' + esc(r.subscribers || "0") +
-        '</td><td>' + esc(views) + '</td><td>' + esc(r.videos_count || "0") +
+      return '<tr class="channel-row" data-url="' + esc(url) + '"><td>' + cb + '</td><td>' + esc(r.channel_name || "") +
+        '</td><td>' + esc(r.subscribers || "0") + '</td><td>' + esc(views) + '</td><td>' + esc(r.videos_count || "0") +
         '</td><td><a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url) + '</a></td><td>' +
         esc(r.email || "—") + '</td><td><span class="badge badge-ok">✅</span></td>' +
         '<td><button type="button" class="btn btn-ghost btn-sm btn-del-ch" data-url="' + esc(url) + '">✕</button></td></tr>';
     }).join("");
+
     tbody.querySelectorAll(".btn-del-ch").forEach(function (btn) {
-      btn.onclick = function () { App.deleteChannels([btn.getAttribute("data-url")]); };
+      btn.onclick = function (e) {
+        e.stopPropagation();
+        App.deleteChannels([btn.getAttribute("data-url")]);
+      };
+    });
+    tbody.querySelectorAll(".ch-check").forEach(function (cb) {
+      cb.onclick = function (e) { e.stopPropagation(); };
+      cb.onchange = function () {
+        var tr = cb.closest("tr");
+        if (tr) tr.classList.toggle("row-selected", cb.checked);
+      };
+    });
+    tbody.querySelectorAll("tr.channel-row").forEach(function (tr) {
+      tr.onclick = function (e) {
+        if (e.target && (e.target.tagName === "A" || e.target.tagName === "BUTTON" || e.target.tagName === "INPUT")) return;
+        var cb = tr.querySelector(".ch-check");
+        if (!cb) return;
+        cb.checked = !cb.checked;
+        tr.classList.toggle("row-selected", cb.checked);
+      };
     });
   }
 
@@ -71,7 +91,7 @@
     }
     tbody.innerHTML = list.map(function (a) {
       var key = a.path || a.folder || a.name || "";
-      return '<tr><td><input type="checkbox" class="acc-check" data-name="' + esc(a.name || "") +
+      return '<tr class="account-row"><td><input type="checkbox" class="acc-check" data-name="' + esc(a.name || "") +
         '" data-path="' + esc(key) + '" /></td><td>' + esc(a.name) + '</td><td>' +
         esc(a.folder_short || a.folder || "") + '</td><td>' + esc(a.materials_count) +
         '</td><td>' + esc(a.size) + '</td><td>' + esc(a.modified_date) +
@@ -80,8 +100,25 @@
         esc(a.name || "") + '" data-path="' + esc(key) + '">✕</button></td></tr>';
     }).join("");
     tbody.querySelectorAll(".btn-del-acc").forEach(function (btn) {
-      btn.onclick = function () {
+      btn.onclick = function (e) {
+        e.stopPropagation();
         App.deleteAccounts([btn.getAttribute("data-name")], [btn.getAttribute("data-path")]);
+      };
+    });
+    tbody.querySelectorAll(".acc-check").forEach(function (cb) {
+      cb.onclick = function (e) { e.stopPropagation(); };
+      cb.onchange = function () {
+        var tr = cb.closest("tr");
+        if (tr) tr.classList.toggle("row-selected", cb.checked);
+      };
+    });
+    tbody.querySelectorAll("tr.account-row").forEach(function (tr) {
+      tr.onclick = function (e) {
+        if (e.target && (e.target.tagName === "BUTTON" || e.target.tagName === "INPUT")) return;
+        var cb = tr.querySelector(".acc-check");
+        if (!cb) return;
+        cb.checked = !cb.checked;
+        tr.classList.toggle("row-selected", cb.checked);
       };
     });
   }
@@ -95,12 +132,18 @@
     };
     App._paintChannels = paintCh;
     App.filterChannels = function () { paintCh(App._channelsCache || []); };
+
     App.selectAllChannels = function (on) {
       var c = !!on;
-      document.querySelectorAll(".ch-check").forEach(function (x) { x.checked = c; });
+      document.querySelectorAll(".ch-check").forEach(function (x) {
+        x.checked = c;
+        var tr = x.closest("tr");
+        if (tr) tr.classList.toggle("row-selected", c);
+      });
       var all = document.getElementById("ch-check-all");
       if (all) all.checked = c;
     };
+
     App.deleteSelectedChannels = async function () {
       var urls = [];
       document.querySelectorAll(".ch-check:checked").forEach(function (x) {
@@ -110,12 +153,14 @@
       if (!confirm("Удалить выбранные (" + urls.length + ")?")) return;
       await App.deleteChannels(urls);
     };
+
     App.deleteChannels = async function (urls) {
       var res = await App.api("delete_channels", null, urls || []);
       if (res && res.error) { alert(res.error); return; }
       App.renderStats((res && res.stats) || []);
       if (App.refreshHome) App.refreshHome();
     };
+
     App.importChannels = async function () {
       var ta = document.getElementById("channels-import");
       var text = ta ? ta.value : "";
@@ -149,7 +194,11 @@
     App.filterAccounts = function () { paintAcc(App._accountsCache || []); };
     App.selectAllAccounts = function (on) {
       var c = !!on;
-      document.querySelectorAll(".acc-check").forEach(function (x) { x.checked = c; });
+      document.querySelectorAll(".acc-check").forEach(function (x) {
+        x.checked = c;
+        var tr = x.closest("tr");
+        if (tr) tr.classList.toggle("row-selected", c);
+      });
       var all = document.getElementById("acc-check-all");
       if (all) all.checked = c;
     };
@@ -197,26 +246,91 @@
       if (App.refreshHome) App.refreshHome();
     };
 
-    [["btn-ch-select-all", function () { App.selectAllChannels(true); }],
-     ["btn-ch-select-none", function () { App.selectAllChannels(false); }],
-     ["btn-ch-delete", function () { App.deleteSelectedChannels(); }],
-     ["btn-ch-import", function () { App.importChannels(); }],
-     ["btn-acc-select-all", function () { App.selectAllAccounts(true); }],
-     ["btn-acc-select-none", function () { App.selectAllAccounts(false); }],
-     ["btn-acc-delete", function () { App.deleteSelectedAccounts(); }]
-    ].forEach(function (pair) {
-      var e = document.getElementById(pair[0]);
-      if (e) e.onclick = pair[1];
-    });
-    var chAll = document.getElementById("ch-check-all");
-    if (chAll) chAll.onchange = function () { App.selectAllChannels(!!chAll.checked); };
-    var accAll = document.getElementById("acc-check-all");
-    if (accAll) accAll.onchange = function () { App.selectAllAccounts(!!accAll.checked); };
-    var cs = document.getElementById("channels-search");
-    if (cs) cs.oninput = function () { App.filterChannels(); };
-    var as = document.getElementById("accounts-search");
-    if (as) as.oninput = function () { App.filterAccounts(); };
+    App.switchProject = async function (pid) {
+      if (!pid) return;
+      if (pid === "__all__") {
+        if (App.showAllProjectsStats) await App.showAllProjectsStats();
+        return;
+      }
+      App.viewMode = "project";
+      App.setStatus("Смена проекта…");
+      App.renderStats([]);
+      var log = document.getElementById("stats-log");
+      if (log) log.textContent = "Загрузка проекта…\n";
 
+      var res = await App.api("switch_project", pid);
+      if (!res || res.error) {
+        alert((res && res.error) || "Не удалось сменить проект");
+        App.setStatus("Ошибка смены проекта");
+        return;
+      }
+
+      var stats = await App.api("get_cached_stats");
+      App.renderStats(Array.isArray(stats) ? stats : []);
+      if (log) {
+        var n = Array.isArray(stats) ? stats.length : 0;
+        log.textContent = n ? ("Проект: " + (res.project_name || "") + " — " + n + " каналов.\n") : "В проекте нет статистики.\n";
+      }
+      if (App.refreshHome) await App.refreshHome();
+      if (App.refreshAccounts) await App.refreshAccounts();
+      if (App.loadExpenses) await App.loadExpenses();
+      if (App.loadConfig) await App.loadConfig();
+
+      var sel = document.getElementById("project-select");
+      if (sel) sel.value = pid;
+
+      App.setStatus("Проект: " + (res.project_name || pid));
+    };
+
+    App.loadProjects = async function () {
+      var data = await App.api("list_projects");
+      var sel = document.getElementById("project-select");
+      if (!data || !sel) return;
+      var cur = sel.value;
+      var opts = '<option value="__all__">Все проекты</option>';
+      (data.projects || []).forEach(function (p) {
+        var selAttr = (p.id === data.active_id) ? " selected" : "";
+        opts += '<option value="' + esc(p.id) + '"' + selAttr + ">" + esc(p.name) + "</option>";
+      });
+      sel.innerHTML = opts;
+      if (cur && cur !== "__all__") {
+        var found = false;
+        for (var i = 0; i < sel.options.length; i++) {
+          if (sel.options[i].value === cur) { found = true; break; }
+        }
+        if (found) sel.value = cur;
+      }
+      sel.onchange = function () { App.switchProject(sel.value); };
+    };
+
+    function bind() {
+      var pairs = [
+        ["btn-ch-select-all", function () { App.selectAllChannels(true); }],
+        ["btn-ch-select-none", function () { App.selectAllChannels(false); }],
+        ["btn-ch-delete", function () { App.deleteSelectedChannels(); }],
+        ["btn-ch-import", function () { App.importChannels(); }],
+        ["btn-acc-select-all", function () { App.selectAllAccounts(true); }],
+        ["btn-acc-select-none", function () { App.selectAllAccounts(false); }],
+        ["btn-acc-delete", function () { App.deleteSelectedAccounts(); }],
+      ];
+      pairs.forEach(function (pair) {
+        var e = document.getElementById(pair[0]);
+        if (e) e.onclick = pair[1];
+      });
+      var chAll = document.getElementById("ch-check-all");
+      if (chAll) chAll.onchange = function () { App.selectAllChannels(!!chAll.checked); };
+      var accAll = document.getElementById("acc-check-all");
+      if (accAll) accAll.onchange = function () { App.selectAllAccounts(!!accAll.checked); };
+      var cs = document.getElementById("channels-search");
+      if (cs) cs.oninput = function () { App.filterChannels(); };
+      var as = document.getElementById("accounts-search");
+      if (as) as.oninput = function () { App.filterAccounts(); };
+      var sel = document.getElementById("project-select");
+      if (sel) sel.onchange = function () { App.switchProject(sel.value); };
+    }
+    bind();
+
+    document.title = "YT Analytics · 20260819j";
     return true;
   }
 
@@ -225,7 +339,6 @@
       setTimeout(boot, 80);
       return;
     }
-    document.title = "YT Analytics · 20260819i";
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", boot);
