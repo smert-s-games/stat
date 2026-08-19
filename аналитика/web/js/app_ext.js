@@ -26,65 +26,7 @@
     return false;
   }
 
-  App.renderStats = function (results) {
-    var tbody = document.getElementById("stats-tbody");
-    if (!tbody) return;
-    if (!results || !results.length) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty">Нет данных</td></tr>';
-      return;
-    }
-    tbody.innerHTML = results
-      .map(function (r) {
-        var err = String(r.error == null ? "" : r.error);
-        var name = String(r.channel_name == null ? "" : r.channel_name);
-        if (isErrorRow(r)) {
-          var label = "Ошибка";
-          var low = (err + " " + name).toLowerCase();
-          if (name.trim().toLowerCase() === "youtube" || name.trim().toLowerCase() === "www.youtube.com") {
-            label = "Неактивный канал";
-          } else if (low.indexOf("404") >= 0 || low.indexOf("not found") >= 0) {
-            label = "404 Not Found";
-          } else if (err) {
-            label = err;
-          }
-          return (
-            '<tr class="row-error"><td>' +
-            esc(name || r.url || "") +
-            "</td><td>—</td><td>—</td><td>—</td><td>" +
-            esc(r.url || "") +
-            "</td><td>" +
-            esc(r.email || r.project_name || "—") +
-            '</td><td><span class="badge badge-err">❌ ' +
-            esc(label) +
-            "</span></td></tr>"
-          );
-        }
-        return (
-          "<tr><td>" +
-          esc(r.channel_name || "") +
-          "</td><td>" +
-          esc(r.subscribers || "0") +
-          "</td><td>" +
-          esc(r.total_views || "0") +
-          "</td><td>" +
-          esc(r.videos_count || "0") +
-          '</td><td><a href="#" data-url="' +
-          esc(r.url || "") +
-          '">' +
-          esc(r.url || "") +
-          "</a></td><td>" +
-          esc(r.email || "—") +
-          '</td><td><span class="badge badge-ok">✅</span></td></tr>'
-        );
-      })
-      .join("");
-    tbody.querySelectorAll("a[data-url]").forEach(function (a) {
-      a.onclick = function (e) {
-        e.preventDefault();
-        App.openUrl(a.getAttribute("data-url"));
-      };
-    });
-  };
+  // renderStats provided by app_mgmt.js
 
   App.renderThemePills = function () {
     var box = document.getElementById("theme-pills");
