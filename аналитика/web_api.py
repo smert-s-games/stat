@@ -32,4 +32,10 @@ try:
 except Exception as e:
     print("display_fix:", e)
 
+try:
+    from modules.email_stats_fix import apply_email_stats_fix
+    apply_email_stats_fix(WebAPI)
+except Exception as e:
+    print("email_stats_fix:", e)
+
 __all__ = ["WebAPI", "BASE", "sort_stats", "sort_accounts"]
