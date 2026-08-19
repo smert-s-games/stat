@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>YT Analytics</title>
-  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/css/styles.css?v=20260819c" />
 </head>
 <body>
   <div class="app">
@@ -53,9 +53,9 @@
             </div>
             <textarea id="channels-import" rows="5" placeholder="По одному на строку&#10;https://www.youtube.com/@channel&#10;или&#10;https://www.youtube.com/@channel:mail@example.com" style="width:100%;font-family:monospace;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)"></textarea>
             <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-              <button class="btn btn-success btn-sm" onclick="App.importChannels()">Добавить</button>
-              <button class="btn btn-primary btn-sm" id="stats-parse-btn" onclick="App.startParse()">Парсить</button>
-              <button class="btn btn-ghost btn-sm" onclick="App.pickLinksFile()">Файл ссылок</button>
+              <button type="button" class="btn btn-success btn-sm" id="btn-ch-import">Добавить</button>
+              <button type="button" class="btn btn-primary btn-sm" id="stats-parse-btn" onclick="App.startParse()">Парсить</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="App.pickLinksFile()">Файл ссылок</button>
               <select id="stats-sort" class="btn btn-ghost btn-sm">
                 <option value="default">Сортировка</option>
                 <option value="name">Имя</option>
@@ -68,13 +68,13 @@
           </div></div>
         <div class="card"><div class="card-header"><span class="title">Список каналов</span>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <input type="search" id="channels-search" placeholder="Поиск по названию…" oninput="App.filterChannels()" style="min-width:180px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)" />
-            <button class="btn btn-ghost btn-sm" onclick="App.selectAllChannels(true)">Выбрать все</button>
-            <button class="btn btn-ghost btn-sm" onclick="App.selectAllChannels(false)">Снять</button>
-            <button class="btn btn-danger btn-sm" onclick="App.deleteSelectedChannels()">Удалить выбранные</button>
+            <input type="search" id="channels-search" placeholder="Поиск по названию…" style="min-width:180px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)" />
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-ch-select-all">Выбрать все</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-ch-select-none">Снять</button>
+            <button type="button" class="btn btn-danger btn-sm" id="btn-ch-delete">Удалить выбранные</button>
           </div></div>
           <div class="card-body table-wrap"><table><thead><tr>
-            <th style="width:36px"><input type="checkbox" id="ch-check-all" onchange="App.selectAllChannels(this.checked)" /></th>
+            <th style="width:40px"><input type="checkbox" id="ch-check-all" /></th>
             <th>Канал</th><th>Подписчики</th><th>Просмотры</th><th>Видео</th><th>Ссылка</th><th>Email</th><th>Статус</th><th></th>
           </tr></thead>
           <tbody id="stats-tbody"><tr><td colspan="9" class="empty">Нет данных</td></tr></tbody></table></div></div>
@@ -89,19 +89,19 @@
               <option value="quality_desc">Качество ↓</option>
               <option value="name">Имя</option>
             </select>
-            <button class="btn btn-success btn-sm" onclick="App.addAccountsFolder()">+ папка</button>
-            <button class="btn btn-primary btn-sm" onclick="App.refreshAccounts()">Обновить</button>
+            <button type="button" class="btn btn-success btn-sm" onclick="App.addAccountsFolder()">+ папка</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="App.refreshAccounts()">Обновить</button>
           </div></div>
           <div class="card-body"><div id="accounts-folders" class="empty">Нет папок</div></div></div>
         <div class="card"><div class="card-header"><span class="title">Список</span>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <input type="search" id="accounts-search" placeholder="Поиск по названию…" oninput="App.filterAccounts()" style="min-width:180px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)" />
-            <button class="btn btn-ghost btn-sm" onclick="App.selectAllAccounts(true)">Выбрать все</button>
-            <button class="btn btn-ghost btn-sm" onclick="App.selectAllAccounts(false)">Снять</button>
-            <button class="btn btn-danger btn-sm" onclick="App.deleteSelectedAccounts()">Удалить выбранные</button>
+            <input type="search" id="accounts-search" placeholder="Поиск по названию…" style="min-width:180px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)" />
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-acc-select-all">Выбрать все</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-acc-select-none">Снять</button>
+            <button type="button" class="btn btn-danger btn-sm" id="btn-acc-delete">Удалить выбранные</button>
           </div></div>
           <div class="card-body table-wrap"><table><thead><tr>
-            <th style="width:36px"><input type="checkbox" id="acc-check-all" onchange="App.selectAllAccounts(this.checked)" /></th>
+            <th style="width:40px"><input type="checkbox" id="acc-check-all" /></th>
             <th>Имя</th><th>Папка</th><th>Материалы</th><th>Размер</th><th>Изменён</th><th>Качество</th><th></th>
           </tr></thead>
           <tbody id="accounts-tbody"><tr><td colspan="8" class="empty">Нет данных</td></tr></tbody></table></div></div>
@@ -109,11 +109,11 @@
       <section class="page" id="page-video">
         <h1 class="page-title">Видео-скрипты</h1>
         <div class="card"><div class="card-header"><span class="title">Скрипты</span>
-          <button class="btn btn-success btn-sm" onclick="App.addVideoScript()">+</button></div>
+          <button type="button" class="btn btn-success btn-sm" onclick="App.addVideoScript()">+</button></div>
           <div class="card-body"><div id="video-scripts" class="empty">Нет скриптов</div>
             <div style="margin-top:12px;display:flex;gap:8px">
-              <button class="btn btn-primary btn-sm" id="video-run-btn" onclick="App.runVideoScript()">Запуск</button>
-              <button class="btn btn-ghost btn-sm" id="video-stop-btn" disabled onclick="App.stopVideoScript()">Стоп</button>
+              <button type="button" class="btn btn-primary btn-sm" id="video-run-btn" onclick="App.runVideoScript()">Запуск</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="video-stop-btn" disabled onclick="App.stopVideoScript()">Стоп</button>
             </div>
             <div class="log-box" id="video-log" style="margin-top:12px"></div>
           </div></div>
@@ -126,7 +126,7 @@
             <input type="text" id="exp-desc" placeholder="Описание" />
             <input type="text" id="exp-cat" placeholder="Категория" />
             <input type="date" id="exp-date" />
-            <button class="btn btn-primary btn-sm" onclick="App.addExpense()">Добавить</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="App.addExpense()">Добавить</button>
           </div></div>
         <div class="card"><div class="card-header"><span class="title">Список</span><span id="exp-total"></span></div>
           <div class="card-body table-wrap"><table><thead><tr><th>Дата</th><th>Категория</th><th>Описание</th><th>Сумма</th><th></th></tr></thead>
@@ -139,7 +139,7 @@
             <input id="px-name" placeholder="Имя" /><input id="px-host" placeholder="Host" /><input id="px-port" placeholder="Port" />
             <input id="px-type" placeholder="http" /><input id="px-login" placeholder="Login" /><input id="px-pass" placeholder="Pass" type="password" />
             <input id="px-buy" placeholder="Куплено" /><input id="px-exp" placeholder="До" /><input id="px-notes" placeholder="Заметки" />
-            <button class="btn btn-primary btn-sm" onclick="App.addProxyFromForm()">Сохранить</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="App.addProxyFromForm()">Сохранить</button>
             <span id="proxy-save-msg"></span>
           </div></div>
         <div class="card"><div class="card-header"><span class="title">Список</span></div>
@@ -151,9 +151,9 @@
         <div class="card"><div class="card-body">
           <div class="form-row"><label>Token</label><input id="tg-token" type="password" /></div>
           <div class="form-row"><label>Chat ID</label><input id="tg-chat" /></div>
-          <button class="btn btn-primary btn-sm" onclick="App.saveTelegram()">Сохранить</button>
-          <button class="btn btn-success btn-sm" id="tg-start" onclick="App.startBot()">Старт</button>
-          <button class="btn btn-ghost btn-sm" id="tg-stop" disabled onclick="App.stopBot()">Стоп</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="App.saveTelegram()">Сохранить</button>
+          <button type="button" class="btn btn-success btn-sm" id="tg-start" onclick="App.startBot()">Старт</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="tg-stop" disabled onclick="App.stopBot()">Стоп</button>
           <div class="log-box" id="tg-log" style="margin-top:12px"></div>
         </div></div>
       </section>
@@ -165,11 +165,11 @@
           <div class="card-body">
             <div class="form-row"><label>Прокси куплено</label><input id="proxy-purchase" /></div>
             <div class="form-row"><label>Прокси до</label><input id="proxy-expiry" /></div>
-            <button class="btn btn-primary btn-sm" onclick="App.saveProxy()">Сохранить прокси</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="App.saveProxy()">Сохранить прокси</button>
             <span id="proxy-save-msg"></span>
             <div class="form-row" style="margin-top:12px"><label>Сервер куплено</label><input id="server-purchase" /></div>
             <div class="form-row"><label>Сервер до</label><input id="server-expiry" /></div>
-            <button class="btn btn-primary btn-sm" onclick="App.saveServer()">Сохранить сервер</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="App.saveServer()">Сохранить сервер</button>
             <span id="server-save-msg"></span>
           </div></div>
       </section>
@@ -177,8 +177,8 @@
       <footer class="status-bar"><span id="status-theme">Тема: Светлая</span></footer>
     </div>
   </div>
-  <script src="/js/app.js"></script>
-  <script src="/js/app_ext.js"></script>
-  <script src="/js/app_mgmt.js"></script>
+  <script src="/js/app.js?v=20260819c"></script>
+  <script src="/js/app_ext.js?v=20260819c"></script>
+  <script src="/js/app_mgmt.js?v=20260819c"></script>
 </body>
 </html>
