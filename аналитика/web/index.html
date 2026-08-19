@@ -4,168 +4,180 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>YT Analytics</title>
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
-  <header class="app-header">
-    <div class="logo"><span class="logo-badge">YT</span><span>Analytics</span></div>
-    <div class="header-actions" style="gap:10px">
-      <select id="project-select" class="btn btn-ghost btn-sm" style="max-width:220px"></select>
-      <button class="btn btn-ghost btn-sm" id="btn-new-project" title="Новый проект">+</button>
-      <button class="btn btn-primary btn-sm" id="btn-parse">Парсинг</button>
-      <button class="btn btn-warning btn-sm" id="btn-export">Экспорт</button>
-      <button class="btn btn-ghost btn-sm" id="btn-theme">Тема</button>
-    </div>
-  </header>
-  <div class="app-body">
+  <div class="app">
     <aside class="sidebar">
-      <div class="sidebar-label">МЕНЮ</div>
-      <button class="nav-item active" data-page="home"><span class="label">Главная</span></button>
-      <button class="nav-item" data-page="stats"><span class="label">Статистика</span></button>
-      <button class="nav-item" data-page="accounts"><span class="label">Аккаунты</span></button>
-      <button class="nav-item" data-page="expenses"><span class="label">Расходы</span></button>
-      <button class="nav-item" data-page="video"><span class="label">Видео</span></button>
-      <button class="nav-item" data-page="proxy"><span class="label">Прокси</span></button>
-      <button class="nav-item" data-page="telegram"><span class="label">Telegram</span></button>
+      <div class="logo">YT Analytics</div>
+      <nav class="nav">
+        <button class="nav-item active" data-page="home"><span class="label">Главная</span></button>
+        <button class="nav-item" data-page="stats"><span class="label">Статистика</span></button>
+        <button class="nav-item" data-page="accounts"><span class="label">Аккаунты</span></button>
+        <button class="nav-item" data-page="video"><span class="label">Видео</span></button>
+        <button class="nav-item" data-page="expenses"><span class="label">Расходы</span></button>
+        <button class="nav-item" data-page="proxy"><span class="label">Прокси</span></button>
+        <button class="nav-item" data-page="telegram"><span class="label">Telegram</span></button>
+        <button class="nav-item" data-page="settings"><span class="label">Настройки</span></button>
+      </nav>
     </aside>
-    <main class="content">
+    <div class="main">
+      <header class="app-header">
+        <select id="project-select" class="btn btn-ghost btn-sm" style="max-width:220px"></select>
+        <button class="btn btn-ghost btn-sm" id="btn-new-project">+ Проект</button>
+        <div style="flex:1"></div>
+        <button class="btn btn-ghost btn-sm" id="btn-theme">Тема</button>
+        <span id="status-text" style="font-size:12px;opacity:.85">…</span>
+      </header>
+      <div class="content">
       <section class="page active" id="page-home">
         <h1 class="page-title">Панель <span id="home-project-name" style="font-size:14px;color:var(--muted)"></span></h1>
-        <div class="kpi-row">
+        <div class="kpi-grid">
           <div class="kpi-card indigo"><div class="kpi-label">Каналы</div><div class="kpi-value" id="kpi-channels">—</div></div>
-          <div class="kpi-card cyan"><div class="kpi-label">Просмотры</div><div class="kpi-value" id="kpi-views">—</div></div>
-          <div class="kpi-card amber"><div class="kpi-label">Подписчики</div><div class="kpi-value" id="kpi-subs">—</div></div>
+          <div class="kpi-card blue"><div class="kpi-label">Просмотры</div><div class="kpi-value" id="kpi-views">—</div></div>
+          <div class="kpi-card orange"><div class="kpi-label">Подписчики</div><div class="kpi-value" id="kpi-subs">—</div></div>
           <div class="kpi-card green"><div class="kpi-label">Аккаунты</div><div class="kpi-value" id="kpi-accounts">—</div></div>
         </div>
-        <div class="grid-2">
+        <div class="grid-2" style="margin-top:16px">
           <div class="card"><div class="card-header"><span class="title">Проект / прокси</span></div><div class="card-body" id="home-proxy">Загрузка…</div></div>
-          <div class="card"><div class="card-header"><span class="title">Действия</span></div>
-            <div class="card-body" style="display:flex;flex-direction:column;gap:8px">
-              <button class="btn btn-primary" onclick="App.startParse()">Парсинг</button>
-              <button class="btn btn-success" onclick="App.refreshAccounts()">Аккаунты</button>
-              <button class="btn btn-warning" onclick="App.exportStats()">Экспорт</button>
-              <button class="btn btn-ghost" onclick="App.toggleTheme()">Тема</button>
-            </div></div>
         </div>
       </section>
       <section class="page" id="page-stats">
-        <h1 class="page-title">Статистика</h1>
-        <div class="card"><div class="card-header"><span class="title">Управление</span>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <select id="stats-sort" class="btn btn-ghost btn-sm">
-              <option value="default">По умолчанию</option>
-              <option value="name">Имя</option>
-              <option value="subs_desc">Подписчики вниз</option>
-              <option value="views_desc">Просмотры вниз</option>
-            </select>
-            <button class="btn btn-primary btn-sm" id="stats-parse-btn" onclick="App.startParse()">Запуск</button>
-            <button class="btn btn-ghost btn-sm" onclick="App.pickLinksFile()">Файл ссылок</button>
-          </div></div>
+        <h1 class="page-title">Статистика / Каналы</h1>
+        <div class="card"><div class="card-header"><span class="title">Добавить каналы</span></div>
           <div class="card-body">
-            <div class="form-row"><label>Файл ссылок</label><input type="text" id="links-file" /></div>
+            <div class="form-row" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+              <label style="margin:0">Формат:</label>
+              <label class="radio-label"><input type="radio" name="ch-format" value="url" checked /> Только канал (URL)</label>
+              <label class="radio-label"><input type="radio" name="ch-format" value="url_email" /> Канал:почта</label>
+            </div>
+            <textarea id="channels-import" rows="5" placeholder="По одному на строку&#10;https://www.youtube.com/@channel&#10;или&#10;https://www.youtube.com/@channel:mail@example.com" style="width:100%;font-family:monospace;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)"></textarea>
+            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+              <button class="btn btn-success btn-sm" onclick="App.importChannels()">Добавить</button>
+              <button class="btn btn-primary btn-sm" id="stats-parse-btn" onclick="App.startParse()">Парсить</button>
+              <button class="btn btn-ghost btn-sm" onclick="App.pickLinksFile()">Файл ссылок</button>
+              <select id="stats-sort" class="btn btn-ghost btn-sm">
+                <option value="default">Сортировка</option>
+                <option value="name">Имя</option>
+                <option value="subs_desc">Подписчики ↓</option>
+                <option value="views_desc">Просмотры ↓</option>
+              </select>
+            </div>
+            <div class="form-row" style="margin-top:8px"><label>Файл ссылок</label><input type="text" id="links-file" /></div>
             <div class="log-box" id="stats-log">Готово</div>
           </div></div>
-        <div class="card"><div class="card-header"><span class="title">Результаты</span></div>
-          <div class="card-body table-wrap"><table><thead><tr><th>Канал</th><th>Подписчики</th><th>Просмотры</th><th>Видео</th><th>Ссылка</th><th>Email</th><th>Статус</th></tr></thead>
-          <tbody id="stats-tbody"><tr><td colspan="7" class="empty">Нет данных</td></tr></tbody></table></div></div>
+        <div class="card"><div class="card-header"><span class="title">Список каналов</span>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input type="search" id="channels-search" placeholder="Поиск по названию…" oninput="App.filterChannels()" style="min-width:180px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)" />
+            <button class="btn btn-ghost btn-sm" onclick="App.selectAllChannels(true)">Выбрать все</button>
+            <button class="btn btn-ghost btn-sm" onclick="App.selectAllChannels(false)">Снять</button>
+            <button class="btn btn-danger btn-sm" onclick="App.deleteSelectedChannels()">Удалить выбранные</button>
+          </div></div>
+          <div class="card-body table-wrap"><table><thead><tr>
+            <th style="width:36px"><input type="checkbox" id="ch-check-all" onchange="App.selectAllChannels(this.checked)" /></th>
+            <th>Канал</th><th>Подписчики</th><th>Просмотры</th><th>Видео</th><th>Ссылка</th><th>Email</th><th>Статус</th><th></th>
+          </tr></thead>
+          <tbody id="stats-tbody"><tr><td colspan="9" class="empty">Нет данных</td></tr></tbody></table></div></div>
       </section>
       <section class="page" id="page-accounts">
         <h1 class="page-title">Аккаунты</h1>
         <div class="card"><div class="card-header"><span class="title">Папки</span>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <select id="accounts-sort" class="btn btn-ghost btn-sm">
-              <option value="materials_desc">Материалы вниз</option>
-              <option value="size_desc">Размер вниз</option>
-              <option value="quality_desc">Качество вниз</option>
+            <select id="accounts-sort" class="btn btn-ghost btn-sm" onchange="App.applyAccountsSort(this.value)">
+              <option value="materials_desc">Материалы ↓</option>
+              <option value="size_desc">Размер ↓</option>
+              <option value="quality_desc">Качество ↓</option>
               <option value="name">Имя</option>
             </select>
-            <button class="btn btn-success btn-sm" onclick="App.addAccountsFolder()">+</button>
+            <button class="btn btn-success btn-sm" onclick="App.addAccountsFolder()">+ папка</button>
             <button class="btn btn-primary btn-sm" onclick="App.refreshAccounts()">Обновить</button>
           </div></div>
           <div class="card-body"><div id="accounts-folders" class="empty">Нет папок</div></div></div>
-        <div class="card"><div class="card-header"><span class="title">Список</span></div>
-          <div class="card-body table-wrap"><table><thead><tr><th>Аккаунт</th><th>Папка</th><th>Материалов</th><th>Размер</th><th>Изменён</th><th>Качество</th></tr></thead>
-          <tbody id="accounts-tbody"><tr><td colspan="6" class="empty">Нет данных</td></tr></tbody></table></div></div>
+        <div class="card"><div class="card-header"><span class="title">Список</span>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input type="search" id="accounts-search" placeholder="Поиск по названию…" oninput="App.filterAccounts()" style="min-width:180px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)" />
+            <button class="btn btn-ghost btn-sm" onclick="App.selectAllAccounts(true)">Выбрать все</button>
+            <button class="btn btn-ghost btn-sm" onclick="App.selectAllAccounts(false)">Снять</button>
+            <button class="btn btn-danger btn-sm" onclick="App.deleteSelectedAccounts()">Удалить выбранные</button>
+          </div></div>
+          <div class="card-body table-wrap"><table><thead><tr>
+            <th style="width:36px"><input type="checkbox" id="acc-check-all" onchange="App.selectAllAccounts(this.checked)" /></th>
+            <th>Имя</th><th>Папка</th><th>Материалы</th><th>Размер</th><th>Изменён</th><th>Качество</th><th></th>
+          </tr></thead>
+          <tbody id="accounts-tbody"><tr><td colspan="8" class="empty">Нет данных</td></tr></tbody></table></div></div>
+      </section>
+      <section class="page" id="page-video">
+        <h1 class="page-title">Видео-скрипты</h1>
+        <div class="card"><div class="card-header"><span class="title">Скрипты</span>
+          <button class="btn btn-success btn-sm" onclick="App.addVideoScript()">+</button></div>
+          <div class="card-body"><div id="video-scripts" class="empty">Нет скриптов</div>
+            <div style="margin-top:12px;display:flex;gap:8px">
+              <button class="btn btn-primary btn-sm" id="video-run-btn" onclick="App.runVideoScript()">Запуск</button>
+              <button class="btn btn-ghost btn-sm" id="video-stop-btn" disabled onclick="App.stopVideoScript()">Стоп</button>
+            </div>
+            <div class="log-box" id="video-log" style="margin-top:12px"></div>
+          </div></div>
       </section>
       <section class="page" id="page-expenses">
         <h1 class="page-title">Расходы</h1>
         <div class="card"><div class="card-header"><span class="title">Добавить</span></div>
-          <div class="card-body">
-            <div class="grid-2">
-              <div class="form-row"><label>Сумма</label><input type="text" id="exp-amount" /></div>
-              <div class="form-row"><label>Дата</label><input type="text" id="exp-date" placeholder="ДД.ММ.ГГГГ" /></div>
-              <div class="form-row"><label>Категория</label><input type="text" id="exp-cat" /></div>
-              <div class="form-row"><label>Описание</label><input type="text" id="exp-desc" /></div>
-            </div>
-            <button class="btn btn-primary" onclick="App.addExpense()">Добавить</button>
+          <div class="card-body" style="display:flex;gap:8px;flex-wrap:wrap">
+            <input type="number" id="exp-amount" placeholder="Сумма" step="0.01" />
+            <input type="text" id="exp-desc" placeholder="Описание" />
+            <input type="text" id="exp-cat" placeholder="Категория" />
+            <input type="date" id="exp-date" />
+            <button class="btn btn-primary btn-sm" onclick="App.addExpense()">Добавить</button>
           </div></div>
         <div class="card"><div class="card-header"><span class="title">Список</span><span id="exp-total"></span></div>
           <div class="card-body table-wrap"><table><thead><tr><th>Дата</th><th>Категория</th><th>Описание</th><th>Сумма</th><th></th></tr></thead>
           <tbody id="expenses-tbody"><tr><td colspan="5" class="empty">Нет</td></tr></tbody></table></div></div>
       </section>
-      <section class="page" id="page-video">
-        <h1 class="page-title">Видео-скрипты</h1>
-        <div class="card"><div class="card-header"><span class="title">Скрипты</span>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-success btn-sm" onclick="App.addVideoScript()">+</button>
-            <button class="btn btn-primary btn-sm" id="video-run-btn" onclick="App.runVideoScript()">Старт</button>
-            <button class="btn btn-danger btn-sm" id="video-stop-btn" onclick="App.stopVideoScript()" disabled>Стоп</button>
-          </div></div>
-          <div class="card-body"><div id="video-scripts" class="empty">Нет</div><div class="log-box" id="video-log" style="margin-top:12px">Лог</div></div></div>
-      </section>
       <section class="page" id="page-proxy">
-        <h1 class="page-title">Прокси и сервер</h1>
-        <div class="card"><div class="card-header"><span class="title">Список прокси</span>
-          <button class="btn btn-success btn-sm" onclick="App.addProxy()">Добавить</button></div>
-          <div class="card-body table-wrap"><table><thead><tr><th>Имя</th><th>Хост</th><th>Порт</th><th>Тип</th><th>Логин</th><th>Покупка</th><th>Окончание</th><th>Заметки</th><th></th></tr></thead>
+        <h1 class="page-title">Прокси</h1>
+        <div class="card"><div class="card-header"><span class="title">Добавить</span></div>
+          <div class="card-body" style="display:flex;gap:8px;flex-wrap:wrap">
+            <input id="px-name" placeholder="Имя" /><input id="px-host" placeholder="Host" /><input id="px-port" placeholder="Port" />
+            <input id="px-type" placeholder="http" /><input id="px-login" placeholder="Login" /><input id="px-pass" placeholder="Pass" type="password" />
+            <input id="px-buy" placeholder="Куплено" /><input id="px-exp" placeholder="До" /><input id="px-notes" placeholder="Заметки" />
+            <button class="btn btn-primary btn-sm" onclick="App.addProxyFromForm()">Сохранить</button>
+            <span id="proxy-save-msg"></span>
+          </div></div>
+        <div class="card"><div class="card-header"><span class="title">Список</span></div>
+          <div class="card-body table-wrap"><table><thead><tr><th>Имя</th><th>Host</th><th>Port</th><th>Тип</th><th>Login</th><th>Куплено</th><th>До</th><th>Заметки</th><th></th></tr></thead>
           <tbody id="proxies-tbody"><tr><td colspan="9" class="empty">Нет прокси</td></tr></tbody></table></div></div>
-        <div class="card"><div class="card-header"><span class="title">Новый прокси</span></div>
-          <div class="card-body">
-            <div class="grid-2">
-              <div class="form-row"><label>Имя</label><input type="text" id="px-name" /></div>
-              <div class="form-row"><label>Тип</label><select id="px-type"><option value="http">HTTP</option><option value="socks5">SOCKS5</option></select></div>
-              <div class="form-row"><label>Хост</label><input type="text" id="px-host" /></div>
-              <div class="form-row"><label>Порт</label><input type="text" id="px-port" /></div>
-              <div class="form-row"><label>Логин</label><input type="text" id="px-login" /></div>
-              <div class="form-row"><label>Пароль</label><input type="password" id="px-pass" /></div>
-              <div class="form-row"><label>Покупка</label><input type="text" id="px-buy" placeholder="ДД.ММ.ГГГГ" /></div>
-              <div class="form-row"><label>Окончание</label><input type="text" id="px-exp" placeholder="ДД.ММ.ГГГГ" /></div>
-            </div>
-            <div class="form-row"><label>Заметки</label><input type="text" id="px-notes" /></div>
-            <button class="btn btn-primary" onclick="App.addProxyFromForm()">Сохранить прокси</button>
-            <div id="proxy-save-msg" style="margin-top:8px;font-size:12px;color:var(--muted)"></div>
-          </div></div>
-        <div class="card"><div class="card-header"><span class="title">Сервер</span></div>
-          <div class="card-body">
-            <div class="grid-2">
-              <div class="form-row"><label>Покупка</label><input type="text" id="server-purchase" placeholder="ДД.ММ.ГГГГ" /></div>
-              <div class="form-row"><label>Окончание</label><input type="text" id="server-expiry" placeholder="ДД.ММ.ГГГГ" /></div>
-            </div>
-            <button class="btn btn-primary" onclick="App.saveServer()">Сохранить сервер</button>
-            <div id="server-save-msg" style="margin-top:8px;font-size:12px;color:var(--muted)"></div>
-          </div></div>
-        <div class="card"><div class="card-header"><span class="title">Тема</span></div>
-          <div class="card-body"><div class="theme-pills" id="theme-pills"></div></div></div>
       </section>
       <section class="page" id="page-telegram">
         <h1 class="page-title">Telegram</h1>
-        <div class="card"><div class="card-header"><span class="title">Настройки</span></div>
+        <div class="card"><div class="card-body">
+          <div class="form-row"><label>Token</label><input id="tg-token" type="password" /></div>
+          <div class="form-row"><label>Chat ID</label><input id="tg-chat" /></div>
+          <button class="btn btn-primary btn-sm" onclick="App.saveTelegram()">Сохранить</button>
+          <button class="btn btn-success btn-sm" id="tg-start" onclick="App.startBot()">Старт</button>
+          <button class="btn btn-ghost btn-sm" id="tg-stop" disabled onclick="App.stopBot()">Стоп</button>
+          <div class="log-box" id="tg-log" style="margin-top:12px"></div>
+        </div></div>
+      </section>
+      <section class="page" id="page-settings">
+        <h1 class="page-title">Настройки</h1>
+        <div class="card"><div class="card-header"><span class="title">Темы</span></div>
+          <div class="card-body"><div id="theme-pills" class="theme-pills"></div></div></div>
+        <div class="card"><div class="card-header"><span class="title">Прокси / сервер (даты)</span></div>
           <div class="card-body">
-            <div class="form-row"><label>Token</label><input type="password" id="tg-token" /></div>
-            <div class="form-row"><label>Chat ID</label><input type="text" id="tg-chat" /></div>
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-primary" onclick="App.saveTelegram()">Сохранить</button>
-              <button class="btn btn-success" id="tg-start" onclick="App.startBot()">Старт</button>
-              <button class="btn btn-danger" id="tg-stop" onclick="App.stopBot()" disabled>Стоп</button>
-            </div>
-            <div class="log-box" id="tg-log" style="margin-top:12px">Бот не запущен</div>
+            <div class="form-row"><label>Прокси куплено</label><input id="proxy-purchase" /></div>
+            <div class="form-row"><label>Прокси до</label><input id="proxy-expiry" /></div>
+            <button class="btn btn-primary btn-sm" onclick="App.saveProxy()">Сохранить прокси</button>
+            <span id="proxy-save-msg"></span>
+            <div class="form-row" style="margin-top:12px"><label>Сервер куплено</label><input id="server-purchase" /></div>
+            <div class="form-row"><label>Сервер до</label><input id="server-expiry" /></div>
+            <button class="btn btn-primary btn-sm" onclick="App.saveServer()">Сохранить сервер</button>
+            <span id="server-save-msg"></span>
           </div></div>
       </section>
-    </main>
+      </div>
+      <footer class="status-bar"><span id="status-theme">Тема: Светлая</span></footer>
+    </div>
   </div>
-  <div class="status-bar"><span id="status-text">Готово</span><span id="status-theme">Тема: light</span></div>
-  <input type="hidden" id="proxy-purchase" /><input type="hidden" id="proxy-expiry" />
-  <script src="js/app.js"></script>
-  <script src="js/app_ext.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/app_ext.js"></script>
 </body>
 </html>
