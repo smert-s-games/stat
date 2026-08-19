@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>YT Analytics</title>
-  <link rel="stylesheet" href="/css/styles.css?v=20260819l" />
+  <link rel="stylesheet" href="/css/styles.css?v=20260819n" />
 </head>
 <body>
   <div class="app">
@@ -54,8 +54,8 @@
             <textarea id="channels-import" rows="5" placeholder="По одному на строку" style="width:100%;font-family:monospace;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)"></textarea>
             <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
               <button type="button" class="btn btn-success btn-sm" id="btn-ch-import">Добавить</button>
-              <button type="button" class="btn btn-primary btn-sm" id="stats-parse-btn" onclick="App.startParse()">Парсить</button>
-              <button type="button" class="btn btn-ghost btn-sm" onclick="App.pickLinksFile()">Файл ссылок</button>
+              <button type="button" class="btn btn-primary btn-sm" id="stats-parse-btn">Парсить</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-pick-links">Файл ссылок</button>
               <select id="stats-sort" class="btn btn-ghost btn-sm">
                 <option value="default">Сортировка</option>
                 <option value="name">Имя</option>
@@ -83,14 +83,14 @@
         <h1 class="page-title">Аккаунты</h1>
         <div class="card"><div class="card-header"><span class="title">Папки</span>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <select id="accounts-sort" class="btn btn-ghost btn-sm" onchange="App.applyAccountsSort(this.value)">
+            <select id="accounts-sort" class="btn btn-ghost btn-sm">
               <option value="materials_desc">Материалы</option>
               <option value="size_desc">Размер</option>
               <option value="quality_desc">Качество</option>
               <option value="name">Имя</option>
             </select>
-            <button type="button" class="btn btn-success btn-sm" onclick="App.addAccountsFolder()">+ папка</button>
-            <button type="button" class="btn btn-primary btn-sm" onclick="App.refreshAccounts()">Обновить</button>
+            <button type="button" class="btn btn-success btn-sm" id="btn-add-folder">+ папка</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-refresh-accounts">Обновить</button>
           </div></div>
           <div class="card-body"><div id="accounts-folders" class="empty">Нет папок</div></div></div>
         <div class="card"><div class="card-header"><span class="title">Список</span>
@@ -109,11 +109,11 @@
       <section class="page" id="page-video">
         <h1 class="page-title">Видео-скрипты</h1>
         <div class="card"><div class="card-header"><span class="title">Скрипты</span>
-          <button type="button" class="btn btn-success btn-sm" onclick="App.addVideoScript()">+</button></div>
+          <button type="button" class="btn btn-success btn-sm" id="btn-add-script">+</button></div>
           <div class="card-body"><div id="video-scripts" class="empty">Нет скриптов</div>
             <div style="margin-top:12px;display:flex;gap:8px">
-              <button type="button" class="btn btn-primary btn-sm" id="video-run-btn" onclick="App.runVideoScript()">Запуск</button>
-              <button type="button" class="btn btn-ghost btn-sm" id="video-stop-btn" disabled onclick="App.stopVideoScript()">Стоп</button>
+              <button type="button" class="btn btn-primary btn-sm" id="video-run-btn">Запуск</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="video-stop-btn">Стоп</button>
             </div>
             <div class="log-box" id="video-log" style="margin-top:12px"></div>
           </div></div>
@@ -126,7 +126,7 @@
             <input type="text" id="exp-desc" placeholder="Описание" />
             <input type="text" id="exp-cat" placeholder="Категория" />
             <input type="date" id="exp-date" />
-            <button type="button" class="btn btn-primary btn-sm" onclick="App.addExpense()">Добавить</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-add-expense">Добавить</button>
           </div></div>
         <div class="card"><div class="card-header"><span class="title">Список</span><span id="exp-total"></span></div>
           <div class="card-body table-wrap"><table><thead><tr><th>Дата</th><th>Категория</th><th>Описание</th><th>Сумма</th><th></th></tr></thead>
@@ -139,7 +139,7 @@
             <input id="px-name" placeholder="Имя" /><input id="px-host" placeholder="Host" /><input id="px-port" placeholder="Port" />
             <input id="px-type" placeholder="http" /><input id="px-login" placeholder="Login" /><input id="px-pass" placeholder="Pass" type="password" />
             <input id="px-buy" placeholder="Куплено" /><input id="px-exp" placeholder="До" /><input id="px-notes" placeholder="Заметки" />
-            <button type="button" class="btn btn-primary btn-sm" onclick="App.addProxyFromForm()">Сохранить</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-add-proxy">Сохранить</button>
             <span id="proxy-save-msg"></span>
           </div></div>
         <div class="card"><div class="card-header"><span class="title">Список</span></div>
@@ -151,9 +151,9 @@
         <div class="card"><div class="card-body">
           <div class="form-row"><label>Token</label><input id="tg-token" type="password" /></div>
           <div class="form-row"><label>Chat ID</label><input id="tg-chat" /></div>
-          <button type="button" class="btn btn-primary btn-sm" onclick="App.saveTelegram()">Сохранить</button>
-          <button type="button" class="btn btn-success btn-sm" id="tg-start" onclick="App.startBot()">Старт</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="tg-stop" disabled onclick="App.stopBot()">Стоп</button>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-save-tg">Сохранить</button>
+          <button type="button" class="btn btn-success btn-sm" id="tg-start">Старт</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="tg-stop">Стоп</button>
           <div class="log-box" id="tg-log" style="margin-top:12px"></div>
         </div></div>
       </section>
@@ -165,11 +165,11 @@
           <div class="card-body">
             <div class="form-row"><label>Прокси куплено</label><input id="proxy-purchase" /></div>
             <div class="form-row"><label>Прокси до</label><input id="proxy-expiry" /></div>
-            <button type="button" class="btn btn-primary btn-sm" onclick="App.saveProxy()">Сохранить прокси</button>
-            <span id="proxy-save-msg"></span>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-save-proxy-dates">Сохранить прокси</button>
+            <span id="proxy-save-msg2"></span>
             <div class="form-row" style="margin-top:12px"><label>Сервер куплено</label><input id="server-purchase" /></div>
             <div class="form-row"><label>Сервер до</label><input id="server-expiry" /></div>
-            <button type="button" class="btn btn-primary btn-sm" onclick="App.saveServer()">Сохранить сервер</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-save-server-dates">Сохранить сервер</button>
             <span id="server-save-msg"></span>
           </div></div>
       </section>
@@ -177,8 +177,8 @@
       <footer class="status-bar"><span id="status-theme">Тема: Светлая</span></footer>
     </div>
   </div>
-  <script src="/js/app.js?v=20260819l"></script>
-  <script src="/js/app_ext.js?v=20260819l"></script>
-  <script src="/js/force_ui_fix.js?v=20260819l"></script>
+  <script src="/js/app.js?v=20260819n"></script>
+  <script src="/js/app_ext.js?v=20260819n"></script>
+  <script src="/js/force_ui_fix.js?v=20260819n"></script>
 </body>
 </html>
