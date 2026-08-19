@@ -1,7 +1,6 @@
-/* UI 20260819n — event delegation, all buttons work */
+/* UI 20260819n */
 (function () {
   "use strict";
-
   function esc(s) {
     return String(s == null ? "" : s)
       .replace(/&/g, "\u0026amp;")
@@ -10,12 +9,10 @@
       .replace(/"/g, "\u0026quot;");
   }
   window.esc = esc;
-
   function setStatus(t) {
     var el = document.getElementById("status-text");
     if (el) el.textContent = "UI 20260819n \u00b7 " + t;
   }
-
   function paintCh(results) {
     var tbody = document.getElementById("stats-tbody");
     if (!tbody) return;
@@ -47,15 +44,13 @@
           '</td><td><span class="badge badge-err">❌ ' + esc(label) + '</span></td>' +
           '<td><button type="button" class="btn btn-ghost btn-sm btn-del-ch" data-url="' + esc(url) + '">✕</button></td></tr>';
       }
-      var views = r.total_views || "0";
       return '<tr class="channel-row"><td>' + cb + '</td><td>' + esc(name) +
-        '</td><td>' + esc(r.subscribers || "0") + '</td><td>' + esc(views) + '</td><td>' + esc(r.videos_count || "0") +
+        '</td><td>' + esc(r.subscribers || "0") + '</td><td>' + esc(r.total_views || "0") + '</td><td>' + esc(r.videos_count || "0") +
         '</td><td><a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url) + '</a></td><td>' +
         esc(r.email || "—") + '</td><td><span class="badge badge-ok">✅</span></td>' +
         '<td><button type="button" class="btn btn-ghost btn-sm btn-del-ch" data-url="' + esc(url) + '">✕</button></td></tr>';
     }).join("");
   }
-
   function paintAcc(accounts) {
     var tbody = document.getElementById("accounts-tbody");
     if (!tbody) return;
@@ -83,7 +78,6 @@
         esc(a.name || "") + '" data-path="' + esc(key) + '">✕</button></td></tr>';
     }).join("");
   }
-
   function safeCall(name, fn) {
     return async function () {
       try {
@@ -96,22 +90,17 @@
       }
     };
   }
-
   function installMethods() {
     if (!window.App) return false;
-
     App.setStatus = setStatus;
     App._paintChannels = paintCh;
     App._paintAccounts = paintAcc;
-
     App.renderStats = function (results) {
       App._channelsCache = Array.isArray(results) ? results.slice() : [];
       paintCh(App._channelsCache);
     };
-
     App.filterChannels = function () { paintCh(App._channelsCache || []); };
     App.filterAccounts = function () { paintAcc(App._accountsCache || []); };
-
     App.selectAllChannels = function (on) {
       var c = !!on;
       document.querySelectorAll(".ch-check").forEach(function (x) {
@@ -122,7 +111,6 @@
       var all = document.getElementById("ch-check-all");
       if (all) all.checked = c;
     };
-
     App.selectAllAccounts = function (on) {
       var c = !!on;
       document.querySelectorAll(".acc-check").forEach(function (x) {
@@ -133,122 +121,90 @@
       var all = document.getElementById("acc-check-all");
       if (all) all.checked = c;
     };
-
-    App.deleteChannels = safeCall("Удаление каналов", async function (urls) {
+    App.deleteChannels = safeCall("Удаление", async function (urls) {
       var res = await App.api("delete_channels", null, urls || []);
       if (res && res.error) { alert(res.error); return; }
       App.renderStats((res && res.stats) || []);
       if (App.refreshHome) await App.refreshHome();
-      setStatus("Удалено");
     });
-
     App.deleteSelectedChannels = safeCall("Удаление", async function () {
       var urls = [];
-      document.querySelectorAll(".ch-check:checked").forEach(function (x) {
-        urls.push(x.getAttribute("data-url"));
-      });
+      document.querySelectorAll(".ch-check:checked").forEach(function (x) { urls.push(x.getAttribute("data-url")); });
       if (!urls.length) { alert("Выберите каналы"); return; }
-      if (!confirm("Удалить выбранные (" + urls.length + ")?")) return;
+      if (!confirm("Удалить (" + urls.length + ")?")) return;
       await App.deleteChannels(urls);
     });
-
-    App.deleteAccounts = safeCall("Удаление аккаунтов", async function (names, paths) {
+    App.deleteAccounts = safeCall("Удаление", async function (names, paths) {
       var res = await App.api("delete_accounts", names || [], paths || []);
       if (res && res.error) { alert(res.error); return; }
       App._accountsCache = (res && res.accounts) || [];
       paintAcc(App._accountsCache);
-      if (App.refreshHome) await App.refreshHome();
     });
-
     App.deleteSelectedAccounts = safeCall("Удаление", async function () {
       var names = [], paths = [];
       document.querySelectorAll(".acc-check:checked").forEach(function (x) {
-        names.push(x.getAttribute("data-name"));
-        paths.push(x.getAttribute("data-path"));
+        names.push(x.getAttribute("data-name")); paths.push(x.getAttribute("data-path"));
       });
       if (!names.length) { alert("Выберите аккаунты"); return; }
-      if (!confirm("Удалить выбранные (" + names.length + ")?")) return;
+      if (!confirm("Удалить (" + names.length + ")?")) return;
       await App.deleteAccounts(names, paths);
     });
-
     App.importChannels = safeCall("Импорт", async function () {
       var ta = document.getElementById("channels-import");
       var text = ta ? ta.value : "";
-      if (!text || !text.trim()) { alert("Вставьте список каналов"); return; }
+      if (!text || !text.trim()) { alert("Вставьте список"); return; }
       var fmt = "url";
-      document.querySelectorAll('input[name="ch-format"]').forEach(function (r) {
-        if (r.checked) fmt = r.value;
-      });
+      document.querySelectorAll('input[name="ch-format"]').forEach(function (r) { if (r.checked) fmt = r.value; });
       var res = await App.api("import_channels", text, fmt);
-      if (!res || res.error) { alert((res && res.error) || "Ошибка импорта"); return; }
+      if (!res || res.error) { alert((res && res.error) || "err"); return; }
       if (ta) ta.value = "";
-      alert("Добавлено: " + (res.added || 0) + ", всего: " + (res.total || 0));
+      alert("Добавлено: " + (res.added || 0));
       var cached = await App.api("get_cached_stats");
       if (Array.isArray(cached)) App.renderStats(cached);
-      if (App.refreshHome) await App.refreshHome();
-      setStatus("Импорт готов");
     });
-
     App.startParse = safeCall("Парсинг", async function () {
       var links = (document.getElementById("links-file") || {}).value;
       if (links) await App.api("set_links_file", links);
       var res = await App.api("start_parse");
       if (res && res.error) { alert(res.error); return; }
       setStatus("Парсинг запущен");
-      var log = document.getElementById("stats-log");
-      if (log) log.textContent = "Парсинг запущен\u2026\n";
     });
-
     App.switchProject = safeCall("Смена проекта", async function (pid) {
       if (!pid) return;
-      if (pid === "__all__") {
-        if (App.showAllProjectsStats) await App.showAllProjectsStats();
-        return;
-      }
-      App.viewMode = "project";
+      if (pid === "__all__") { if (App.showAllProjectsStats) await App.showAllProjectsStats(); return; }
       App.renderStats([]);
       var res = await App.api("switch_project", pid);
-      if (!res || res.error) { alert((res && res.error) || "Ошибка смены проекта"); return; }
+      if (!res || res.error) { alert((res && res.error) || "err"); return; }
       var stats = await App.api("get_cached_stats");
       App.renderStats(Array.isArray(stats) ? stats : []);
       if (App.refreshHome) await App.refreshHome();
       if (App.refreshAccounts) await App.refreshAccounts();
-      if (App.loadExpenses) await App.loadExpenses();
       var sel = document.getElementById("project-select");
       if (sel) sel.value = pid;
       setStatus("Проект: " + (res.project_name || pid));
     });
-
-    App.newProject = safeCall("Новый проект", async function () {
+    App.newProject = safeCall("Проект", async function () {
       var name = prompt("Имя проекта:");
       if (!name || !name.trim()) return;
       await App.api("create_project", name.trim());
       if (App.loadProjects) await App.loadProjects();
       if (App.reloadAll) await App.reloadAll();
-      setStatus("Проект создан");
     });
-
     App.toggleTheme = safeCall("Тема", async function () {
       var res = await App.api("toggle_theme");
       if (res && res.theme) {
         document.documentElement.setAttribute("data-theme", res.theme);
-        var st = document.getElementById("status-theme");
-        if (st) st.textContent = "Тема: " + res.theme;
         if (App.renderThemePills) App.renderThemePills();
       }
-      setStatus("Тема: " + ((res && res.theme) || "?"));
     });
-
     App.onParseDone = function (results) {
       App.renderStats(Array.isArray(results) ? results : []);
       if (App.refreshHome) App.refreshHome();
       setStatus("Парсинг завершён");
     };
-
     document.title = "YT Analytics \u00b7 20260819n";
     return typeof App.api === "function";
   }
-
   document.addEventListener("click", function (e) {
     var t = e.target;
     if (!t || !window.App) return;
@@ -267,6 +223,17 @@
       if (id === "btn-acc-delete") { e.preventDefault(); App.deleteSelectedAccounts(); return; }
       if (id === "video-run-btn") { e.preventDefault(); if (App.runVideoScript) App.runVideoScript(); return; }
       if (id === "video-stop-btn") { e.preventDefault(); if (App.stopVideoScript) App.stopVideoScript(); return; }
+      if (id === "btn-pick-links") { e.preventDefault(); if (App.pickLinksFile) App.pickLinksFile(); return; }
+      if (id === "btn-add-folder") { e.preventDefault(); if (App.addAccountsFolder) App.addAccountsFolder(); return; }
+      if (id === "btn-refresh-accounts") { e.preventDefault(); if (App.refreshAccounts) App.refreshAccounts(); return; }
+      if (id === "btn-add-script") { e.preventDefault(); if (App.addVideoScript) App.addVideoScript(); return; }
+      if (id === "btn-add-expense") { e.preventDefault(); if (App.addExpense) App.addExpense(); return; }
+      if (id === "btn-add-proxy") { e.preventDefault(); if (App.addProxyFromForm) App.addProxyFromForm(); return; }
+      if (id === "btn-save-tg") { e.preventDefault(); if (App.saveTelegram) App.saveTelegram(); return; }
+      if (id === "tg-start") { e.preventDefault(); if (App.startBot) App.startBot(); return; }
+      if (id === "tg-stop") { e.preventDefault(); if (App.stopBot) App.stopBot(); return; }
+      if (id === "btn-save-proxy-dates") { e.preventDefault(); if (App.saveProxy) App.saveProxy(); return; }
+      if (id === "btn-save-server-dates") { e.preventDefault(); if (App.saveServer) App.saveServer(); return; }
       if (el.classList && el.classList.contains("btn-del-ch")) {
         e.preventDefault(); e.stopPropagation();
         App.deleteChannels([el.getAttribute("data-url")]); return;
@@ -290,7 +257,6 @@
       el = el.parentElement;
     }
   }, true);
-
   document.addEventListener("change", function (e) {
     var t = e.target;
     if (!t || !window.App) return;
@@ -300,22 +266,18 @@
     if (t.id === "stats-sort" && App.applyStatsSort) { App.applyStatsSort(t.value); return; }
     if (t.id === "accounts-sort" && App.applyAccountsSort) { App.applyAccountsSort(t.value); return; }
     if (t.classList && t.classList.contains("ch-check")) {
-      var tr = t.closest("tr");
-      if (tr) tr.classList.toggle("row-selected", t.checked);
+      var tr = t.closest("tr"); if (tr) tr.classList.toggle("row-selected", t.checked);
     }
     if (t.classList && t.classList.contains("acc-check")) {
-      var tr2 = t.closest("tr");
-      if (tr2) tr2.classList.toggle("row-selected", t.checked);
+      var tr2 = t.closest("tr"); if (tr2) tr2.classList.toggle("row-selected", t.checked);
     }
   }, true);
-
   document.addEventListener("input", function (e) {
     var t = e.target;
     if (!t || !window.App) return;
     if (t.id === "channels-search") App.filterChannels();
     if (t.id === "accounts-search") App.filterAccounts();
   }, true);
-
   function boot() {
     if (!installMethods()) { setTimeout(boot, 50); return; }
     setStatus("Готово");
@@ -324,7 +286,6 @@
       App.loadCachedStats().catch(function (e) { console.error(e); });
     }
   }
-
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 })();
