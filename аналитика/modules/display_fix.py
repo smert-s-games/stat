@@ -1,4 +1,4 @@
-"""Normalize display of channel names (Поиск -> @handle) in cached stats."""
+"""Normalize display of channel names (Поиск/Подписаться -> @handle) in cached stats."""
 from __future__ import annotations
 import re
 
@@ -9,6 +9,8 @@ BAD = {
     "поиск", "главная", "видео", "шортс", "сообщество", "трансляции",
     "плейлисты", "каналы", "о канале", "подписки", "библиотека",
     "история", "в тренде", "магазин", "неизвестно", "www.youtube.com",
+    "подписаться", "subscribe", "subscribed", "join", "присоединиться",
+    "sign in", "войти", "share", "поделиться", "more", "ещё", "еще",
 }
 
 
@@ -35,9 +37,7 @@ def _fix_name(r: dict) -> dict:
 
 
 def apply_display_fix(WebAPI):
-    if getattr(WebAPI, "_display_fix", False):
-        return WebAPI
-
+    # Always re-wrap so latest BAD list applies
     _orig = WebAPI.get_cached_stats
 
     def get_cached_stats(self):
@@ -61,4 +61,5 @@ def apply_display_fix(WebAPI):
 
     WebAPI.get_cached_stats = get_cached_stats
     WebAPI._display_fix = True
+    WebAPI._display_fix_v2 = True
     return WebAPI
