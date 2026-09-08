@@ -12,12 +12,15 @@ BAD_NAMES = {
     "история", "в тренде", "магазин", "неизвестно", "www.youtube.com",
     "подписаться", "subscribe", "subscribed", "join", "присоединиться",
     "sign in", "войти", "share", "поделиться", "more", "ещё", "еще",
+    "unsubscribe", "отписаться",
 }
 
 
 def _bad(name: str) -> bool:
-    n = (name or "").strip().lower()
+    n = (name or "").strip().lower().replace("\u00a0", " ")
     if not n or n in BAD_NAMES or len(n) <= 2:
+        return True
+    if "подпис" in n and len(n) < 20:
         return True
     return False
 
@@ -38,33 +41,33 @@ def apply_parser_fix(StatsParser):
             src = ""
 
         name = (data.get("channel_name") or "").strip()
-        if _bad(name) and src:
-            m = re.search(
+
+        if src:
+            for pat in (
+                r'property="og:title"\s+content="([^"]+)"',
+                r'content="([^"]+)"\s+property="og:title"',
+                r'"microformatDataRenderer"\s*:\s*\{[^}]*?"title"\s*:\s*"([^"]+)"',
                 r'"channelMetadataRenderer"\s*:\s*\{[^}]*?"title"\s*:\s*"([^"]+)"',
-                src,
-            )
-            if m and not _bad(m.group(1)):
-                name = m.group(1).strip()
-            if _bad(name):
-                m = re.search(r'property="og:title"\s+content="([^"]+)"', src)
+                r'"alternateName"\s*:\s*"(@[^"]+)"',
+                r'twitter:title[^>]+content="([^"]+)"',
+            ):
+                m = re.search(pat, src, re.I)
                 if not m:
-                    m = re.search(r'content="([^"]+)"\s+property="og:title"', src)
-                if m:
-                    cand = m.group(1).replace(" - YouTube", "").strip()
-                    if not _bad(cand):
-                        name = cand
-            if _bad(name):
-                m = re.search(r'"ownerChannelName"\s*:\s*"([^"]+)"', src)
-                if m and not _bad(m.group(1)):
-                    name = m.group(1).strip()
+                    continue
+                cand = m.group(1).replace(" - YouTube", "").strip()
+                if cand and not _bad(cand):
+                    name = cand
+                    break
+
         if _bad(name):
-            um = re.search(r"youtube\.com/@([^/?&#]+)", url or "")
+            um = re.search(r"youtube\.com/@([^/?&#]+)", url or "", re.I)
             if um:
                 name = "@" + um.group(1)
         data["channel_name"] = name
 
         if self.parse_number(str(data.get("videos_count") or "0")) <= 0 and src:
             for pat in (
+                r'"content"\s*:\s*"([\d\s.,]+)\s*видео"',
                 r'"videosCountText"\s*:\s*\{[^\]]*?\[\s*\{\s*"text"\s*:\s*"([^"]+)"',
                 r'"videoCountText"\s*:\s*\{[^}]*?"simpleText"\s*:\s*"([^"]+)"',
                 r'([\d\s.,]+)\s*(тыс\.?|млн\.?|K|M)?\s*видео',
@@ -82,7 +85,7 @@ def apply_parser_fix(StatsParser):
         if self.parse_number(str(data.get("subscribers") or "0")) <= 0 and src:
             for pat in (
                 r'"subscriberCountText"\s*:\s*\{[^}]*?"simpleText"\s*:\s*"([^"]+)"',
-                r'"subscriberCountText"\s*:\s*\{[^\]]*?\[\s*\{\s*"text"\s*:\s*"([^"]+)"',
+                r'"content"\s*:\s*"([\d\s.,]+\s*(?:тыс\.?|млн\.?|K|M)?\s*подписчик[^"]*)"',
                 r'([\d\s.,]+)\s*(тыс\.?|млн\.?|K|M)?\s*подписчик',
                 r'([\d\s.,]+)\s*(K|M)?\s*subscribers?',
             ):
@@ -105,28 +108,10 @@ def apply_parser_fix(StatsParser):
             )
             if em:
                 data["email"] = em.group(1)
-            else:
-                em2 = re.search(
-                    r"(?:businessEmail|email)[\"']?\s*[:=]\s*[\"']([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})",
-                    src,
-                    re.I,
-                )
-                if em2:
-                    data["email"] = em2.group(1)
-                else:
-                    for em3 in re.finditer(
-                        r"\b([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})\b",
-                        src,
-                    ):
-                        addr = em3.group(1).lower()
-                        if "youtube" in addr or "google" in addr or "example.com" in addr:
-                            continue
-                        data["email"] = em3.group(1)
-                        break
 
         return data
 
     StatsParser.parse_channel_data = parse_channel_data
     StatsParser._parser_fix_v1 = True
-    StatsParser._parser_fix_v2 = True
+    StatsParser._parser_fix_v3 = True
     return StatsParser
