@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>YT Analytics</title>
-  <link rel="stylesheet" href="/css/styles.css?v=20260819r" />
+  <link rel="stylesheet" href="/css/styles.css?v=20260909a" />
 </head>
 <body>
   <div class="app">
@@ -65,6 +65,55 @@
             <div class="form-row" style="margin-top:8px"><label>Файл ссылок</label><input type="text" id="links-file" /></div>
             <div class="log-box" id="stats-log">Готово</div>
           </div></div>
+        <div class="card" id="stats-charts-card">
+          <div class="card-header">
+            <span class="title">Графики динамики</span>
+            <span id="chart-delta" style="font-weight:600;font-size:13px"></span>
+          </div>
+          <div class="card-body">
+            <div class="chart-toolbar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">
+              <label class="chart-tool">Период
+                <select id="chart-days" class="btn btn-ghost btn-sm">
+                  <option value="7">7 дней</option>
+                  <option value="14">14 дней</option>
+                  <option value="30" selected>30 дней</option>
+                  <option value="90">90 дней</option>
+                </select>
+              </label>
+              <label class="chart-tool">Метрика
+                <select id="chart-metric" class="btn btn-ghost btn-sm">
+                  <option value="views">Просмотры</option>
+                  <option value="subscribers">Подписчики</option>
+                  <option value="videos">Видео</option>
+                </select>
+              </label>
+              <label class="chart-tool">Режим
+                <select id="chart-mode" class="btn btn-ghost btn-sm">
+                  <option value="total">Все каналы (сумма)</option>
+                  <option value="top5">Топ-5 каналов</option>
+                  <option value="channel">Один канал</option>
+                </select>
+              </label>
+              <label class="chart-tool" id="chart-channel-wrap" style="display:none">Канал
+                <select id="chart-channel" class="btn btn-ghost btn-sm" style="max-width:220px">
+                  <option value="">— канал —</option>
+                </select>
+              </label>
+              <label class="chart-tool">Тип
+                <select id="chart-type" class="btn btn-ghost btn-sm">
+                  <option value="line">Линия</option>
+                  <option value="bar">Столбцы</option>
+                </select>
+              </label>
+              <button type="button" class="btn btn-ghost btn-sm" id="chart-refresh">Обновить</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="chart-export">CSV</button>
+            </div>
+            <div class="chart-canvas-wrap" style="position:relative;height:280px;width:100%">
+              <canvas id="stats-chart"></canvas>
+            </div>
+            <div id="charts-status" class="muted" style="margin-top:8px;font-size:12px;opacity:.8">Загрузка графиков…</div>
+          </div>
+        </div>
         <div class="card"><div class="card-header"><span class="title">Список каналов</span>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
             <input type="search" id="channels-search" placeholder="Поиск…" style="min-width:180px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)" />
@@ -163,5 +212,6 @@
   <script src="/js/app.js?v=20260819r"></script>
   <script src="/js/app_ext.js?v=20260819r"></script>
   <script src="/js/force_names.js?v=20260819r"></script>
+  <script src="/js/charts.js?v=20260909a"></script>
 </body>
 </html>
