@@ -38,4 +38,10 @@ try:
 except Exception as e:
     print("display_fix:", e)
 
+try:
+    from modules.charts_api import apply_charts_api
+    apply_charts_api(WebAPI)
+except Exception as e:
+    print("charts_api:", e)
+
 __all__ = ["WebAPI", "BASE", "sort_stats", "sort_accounts"]
