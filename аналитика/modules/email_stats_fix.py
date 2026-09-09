@@ -319,6 +319,16 @@ def apply_email_stats_fix(WebAPI):
                 except Exception as e:
                     print("session save error:", e)
                 try:
+                    if hasattr(self, "stats_history") and self.stats_history:
+                        self.stats_history.save_stats(cleaned)
+                except Exception as e:
+                    print("history save:", e)
+                try:
+                    if hasattr(self, "_append_parse_snapshot"):
+                        self._append_parse_snapshot(cleaned)
+                except Exception as e:
+                    print("snapshot:", e)
+                try:
                     self._js("App.onParseDone(" + json.dumps(cleaned, ensure_ascii=False) + ")")
                 except Exception as e:
                     print("onParseDone:", e)
