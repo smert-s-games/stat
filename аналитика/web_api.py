@@ -44,4 +44,10 @@ try:
 except Exception as e:
     print("charts_api:", e)
 
+try:
+    from modules.themes_fix import apply_themes_fix
+    apply_themes_fix(WebAPI)
+except Exception as e:
+    print("themes_fix:", e)
+
 __all__ = ["WebAPI", "BASE", "sort_stats", "sort_accounts"]
