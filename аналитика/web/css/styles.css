@@ -291,6 +291,10 @@ a { color: var(--accent); }
 .row-error { opacity: .85; }
 
 /* Form controls — fixed for all themes */
+html, body { color-scheme: dark; }
+html[data-theme="light"],
+html[data-theme="sand"] { color-scheme: light; }
+
 input, select, textarea, .btn.btn-ghost.btn-sm {
   background: var(--input-bg) !important;
   color: var(--input-text) !important;
@@ -303,14 +307,32 @@ select {
   appearance: auto;
   -webkit-appearance: menulist;
   cursor: pointer;
+  color-scheme: inherit;
 }
 select option,
 select optgroup {
-  background: var(--input-bg);
-  color: var(--input-text);
+  background-color: var(--input-bg) !important;
+  color: var(--input-text) !important;
 }
-textarea {
-  font-family: ui-monospace, monospace;
+html[data-theme="light"] select option,
+html[data-theme="sand"] select option {
+  background-color: #ffffff !important;
+  color: #1a1d26 !important;
+}
+html:not([data-theme="light"]):not([data-theme="sand"]) select option {
+  background-color: #1c1f2b !important;
+  color: #e8eaed !important;
+}
+textarea { font-family: ui-monospace, monospace; }
+#project-select,
+#chart-days,
+#chart-mode,
+#chart-type,
+#chart-channel,
+#stats-sort,
+#accounts-sort {
+  background: var(--input-bg) !important;
+  color: var(--input-text) !important;
 }
 
 /* Charts */
@@ -328,9 +350,7 @@ textarea {
   font-size: 11px;
   color: var(--muted);
 }
-.chart-toolbar label.chart-tool select {
-  min-width: 110px;
-}
+.chart-toolbar label.chart-tool select { min-width: 110px; }
 .charts-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -352,10 +372,7 @@ textarea {
   align-items: center;
   gap: 8px;
 }
-.chart-panel-delta {
-  font-size: 12px;
-  font-weight: 600;
-}
+.chart-panel-delta { font-size: 12px; font-weight: 600; }
 .chart-canvas-wrap {
   position: relative;
   height: 220px;
