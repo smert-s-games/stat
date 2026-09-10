@@ -50,4 +50,10 @@ try:
 except Exception as e:
     print("themes_fix:", e)
 
+try:
+    from modules.expenses_proxy_fix import apply_expenses_proxy_fix
+    apply_expenses_proxy_fix(WebAPI)
+except Exception as e:
+    print("expenses_proxy_fix:", e)
+
 __all__ = ["WebAPI", "BASE", "sort_stats", "sort_accounts"]
