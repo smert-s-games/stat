@@ -1,4 +1,4 @@
-/* Stats charts UI 20260909b — all metrics on one page */
+/* Stats charts UI 20260910b — per-project */
 (function () {
   var charts = { views: null, subscribers: null, videos: null };
   var lastBundle = null;
@@ -36,6 +36,7 @@
   }
 
   async function loadChannelOptions() {
+    if (!window.App && typeof App !== "undefined") window.App = App;
     if (!window.App || !App.api) return;
     var res = await App.api("get_chart_channels");
     var sel = $("chart-channel");
@@ -129,6 +130,7 @@
   }
 
   async function refreshCharts() {
+    if (!window.App && typeof App !== "undefined") window.App = App;
     if (!window.App || !App.api) return;
     var days = ($("chart-days") || {}).value || 30;
     var mode = ($("chart-mode") || {}).value || "total";
@@ -143,12 +145,15 @@
       return;
     }
 
+    var pid = (document.getElementById("project-select") || {}).value || "";
+    if (App.viewMode === "all") pid = "__all__";
+
     var results = {};
     var sources = [];
     var totalPoints = 0;
     for (var i = 0; i < METRICS.length; i++) {
       var metric = METRICS[i];
-      var data = await App.api("get_charts_data", Number(days), metric, mode, channel);
+      var data = await App.api("get_charts_data", Number(days), metric, mode, channel, pid);
       results[metric] = data;
       if (data && data.labels && data.labels.length) {
         totalPoints = Math.max(totalPoints, data.labels.length);
@@ -162,12 +167,19 @@
       return results[m] && results[m].labels && results[m].labels.length;
     });
     if (!any) {
-      if (status) status.textContent = "Нет точек истории. Сделайте несколько парсингов — графики заполнятся.";
+      if (status) status.textContent = "Нет точек истории для этого проекта. Сделайте парсинг.";
       destroyAll();
       return;
     }
 
-    if (status) status.textContent = totalPoints + " точек · " + (sources[0] || "—");
+    if (status) {
+      var pn = "";
+      try {
+        var first = results[METRICS[0]];
+        if (first && first.project_name) pn = " · " + first.project_name;
+      } catch (e) {}
+      status.textContent = totalPoints + " точек · " + (sources[0] || "—") + pn;
+    }
 
     ensureChartJs(function () {
       METRICS.forEach(function (m) { renderOne(m, results[m], ctype); });
@@ -235,6 +247,7 @@
   var tries = 0;
   var t = setInterval(function () {
     tries++;
+    if (!window.App && typeof App !== "undefined") window.App = App;
     if (window.App) {
       clearInterval(t);
       var origNav = App.navigate;
@@ -262,6 +275,24 @@
         bind();
       }
       App.refreshCharts = refreshCharts;
+      if (!App._chartsProjectHook && App.switchProject) {
+        var _sp = App.switchProject;
+        App.switchProject = async function (pid) {
+          var r = await _sp.call(App, pid);
+          setTimeout(function () { loadChannelOptions(); refreshCharts(); }, 300);
+          return r;
+        };
+        App._chartsProjectHook = true;
+      }
+      if (!App._chartsAllHook && App.showAllProjectsStats) {
+        var _all = App.showAllProjectsStats;
+        App.showAllProjectsStats = async function () {
+          var r = await _all.call(App);
+          setTimeout(function () { loadChannelOptions(); refreshCharts(); }, 300);
+          return r;
+        };
+        App._chartsAllHook = true;
+      }
     } else if (tries > 80) clearInterval(t);
   }, 100);
 
